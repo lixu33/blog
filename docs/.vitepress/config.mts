@@ -4,11 +4,11 @@ import { defineConfig } from 'vitepress'
 import { blogTheme } from './blog-theme'
 // Vitepress 默认配置
 // 详见文档：https://vitepress.dev/reference/site-config
-const base = '/blog/'
+const base = '/'
 export default defineConfig({
   // 继承博客主题(@sugarat/theme)
   extends: blogTheme,
-  // base,
+  base,
   lang: 'zh-cn',
   title: '总要写点什么',
   description: '基于 vitepress 实现',
