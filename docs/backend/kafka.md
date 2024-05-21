@@ -21,7 +21,7 @@ Kafka 的核心概念是发布/订阅模式。生产者（Producer）将消息�
 
 ### Kafka 的核心组件
 
-![Kafka 架构](https://kafka.apache.org/25/images/kafka-apis.png)
+![Kafka 架构](https://img.lixu.dev/rest/2024/05/TKyF7eK.png)
 
 **1. 主题 (Topic):**
 
