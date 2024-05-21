@@ -10,7 +10,12 @@ const blogTheme = getThemeConfig({
   // 默认开启pagefind离线的全文搜索支持（如使用其它的可以设置为false）
   // 如果npx pagefind 时间过长，可以手动将其安装为项目依赖 pnpm add pagefind
   // search: false,
-
+  buttonAfterArticle: {
+    openTitle: '投"币"支持',
+    closeTitle: '下次一定',
+    content: '<img src="https://img.lixu.dev/rest/2024/05/JwfUIeK.png">',
+    icon: 'wechatPay'
+  },
   // 页脚
   footer: {
     // message 字段支持配置为HTML内容，配置多条可以配置为数组
