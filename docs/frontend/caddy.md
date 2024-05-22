@@ -1,13 +1,18 @@
 ---
 isTimeLine: true
 title: Caddy 入门使用
+description: Caddy 是一个强大的、易于使用的开源 Web 服务器，以其自动 HTTPS 功能而闻名。
 date: 2024-05-15
 tags:
  - 后端
  - Web服务器
 categories:
  - Caddy
-keywords: Caddy, Web服务器, 反向代理
+head:
+  - - meta
+    - name: keywords
+      content: Caddy, Web服务器, 反向代理
+
 ---
 
 # Caddy 入门使用

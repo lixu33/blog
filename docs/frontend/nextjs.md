@@ -1,12 +1,16 @@
 ---
 isTimeLine: true
 title: Next.js 入门总结
+description: Next.js 入门总结
 date: 2024-05-13
 tags:
  - 前端
 categories:
  - 前端
-keywords: Nextjs
+head:
+  - - meta
+    - name: keywords
+      content: Next.js, 入门
 ---
 
 # Next.js Dashboard 入门总结

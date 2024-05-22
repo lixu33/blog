@@ -1,6 +1,7 @@
 ---
 isTimeLine: true
 title: 理解 AES 加解密算法
+description: AES 加解密算法的基本原理、使用。
 date: 2024-05-21
 tags:
  - AES
@@ -8,7 +9,10 @@ tags:
  - 解密
 categories:
  - 加密技术
-keywords: AES, 加密, 解密, 对称加密, Java
+head:
+  - - meta
+    - name: keywords
+      content: AES, 加密, 解密, 对称加密, Java
 ---
 
 # 理解 AES 加解密算法

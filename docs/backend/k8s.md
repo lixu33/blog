@@ -1,6 +1,7 @@
 ---
 isTimeLine: true
 title: Kubernetes 入门指南
+description: Kubernetes 入门指南
 date: 2024-05-20
 tags:
  - Kubernetes
@@ -8,7 +9,10 @@ tags:
  - DevOps
 categories:
  - Kubernetes
-keywords: Kubernetes, k8s, 容器, Pod, Deployment, Service
+head:
+  - - meta
+    - name: keywords
+      content: Kubernetes, k8s, 容器, Pod, Deployment, Service
 ---
 
 # Kubernetes 入门指南

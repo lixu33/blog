@@ -8,8 +8,11 @@ const base = '/'
 export default defineConfig({
   // 继承博客主题(@sugarat/theme)
   extends: blogTheme,
+  sitemap: {
+    hostname: 'https://blog.lixu.dev',
+  },
   base,
-  lang: 'zh-cn',
+  lang: 'zh-CN',
   title: '总要写点什么',
   description: '基于 vitepress 实现',
   lastUpdated: true,

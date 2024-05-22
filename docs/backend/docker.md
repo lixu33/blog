@@ -1,6 +1,7 @@
 ---
 isTimeLine: true
 title: Docker 总结
+description: Docker 是一款开源的应用容器引擎，可以让开发者将应用程序及其依赖打包到一个可移植的容器中，然后发布到任何流行的 Linux 机器上。
 date: 2024-05-17
 tags:
  - Docker
@@ -8,7 +9,10 @@ tags:
  - DevOps
 categories:
  - Docker
-keywords: Docker, 容器, 镜像, Dockerfile
+head:
+  - - meta
+    - name: keywords
+      content: Docker, 容器, 镜像, Dockerfile
 ---
 
 # Docker 总结
