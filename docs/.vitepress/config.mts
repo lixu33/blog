@@ -53,7 +53,7 @@ export default defineConfig({
     socialLinks: [
       {
         icon: 'github',
-        link: 'https://github.com/lixu33'
+        link: 'https://github.com/lixu33/blog'
       }
     ]
   }
