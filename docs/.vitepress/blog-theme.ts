@@ -7,6 +7,7 @@ const copyright = 'MIT License | 李旭'
 const RSS: Theme.RSSOptions = {
   title: '总要写点什么',
   baseUrl,
+  language: 'zh-CN',
   copyright: copyright
 }
 
