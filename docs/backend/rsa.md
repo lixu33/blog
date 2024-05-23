@@ -1,23 +1,25 @@
 ---
 isTimeLine: true
 title: 理解 RSA 加解密算法
-description: 理解 RSA 加解密算法
+description: 深入理解 RSA 加解密算法及其在 Java 中的实现
 date: 2024-05-21
 tags:
  - RSA
  - 加密
  - 解密
+ - 非对称加密
+ - Java
 categories:
  - 加密技术
 head:
   - - meta
     - name: keywords
-      content: RSA, 加密, 解密, 非对称加密, Java
+      content: RSA, 加密, 解密, 非对称加密, Java, 公钥, 私钥, 安全传输
 ---
 
 # 理解 RSA 加解密算法
 
-RSA 是一种非对称加密算法，广泛应用于安全数据传输。它利用一对密钥（公钥和私钥）来实现加密和解密操作。本文将详细介绍 RSA 加解密的原理、使用。
+RSA 是一种非对称加密算法，广泛应用于安全数据传输。它利用一对密钥（公钥和私钥）来实现加密和解密操作。本文将详细介绍 RSA 加解密的原理及其在 Java 中的实现。
 
 ## 1. RSA 加密原理
 
@@ -147,11 +149,9 @@ public class RSAKeyExample {
 
 ## 5. 总结
 
-RSA 是一种强大的加密算法，通过使用公钥和私钥实现数据的安全传输。本文详细介绍了RSA的加解密原理、使用示例、从私钥获取公钥的方法，并提供了 Java 的示例代码。
+RSA 是一种强大的加密算法，通过使用公钥和私钥实现数据的安全传输。本文详细介绍了 RSA 的加解密原理、使用示例、从私钥获取公钥的方法，并提供了 Java 的示例代码。
 
 ## 6. 参考
 
 * [RSA (cryptosystem) - Wikipedia](https://en.wikipedia.org/wiki/RSA_(cryptosystem))
 * [Java Cryptography Architecture (JCA) Reference Guide](https://docs.oracle.com/javase/8/docs/technotes/guides/security/crypto/CryptoSpec.html)
-
-

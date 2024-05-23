@@ -38,7 +38,7 @@ const blogTheme = getThemeConfig({
   buttonAfterArticle: {
     openTitle: '投"币"支持',
     closeTitle: '下次一定',
-    content: '<img src="https://img.lixu.dev/rest/2024/05/JwfUIeK.png">',
+    content: '<img src="https://img.lixu.dev/rest/2024/05/t7g1meK.webp">',
     icon: 'wechatPay'
   },
   // 页脚
