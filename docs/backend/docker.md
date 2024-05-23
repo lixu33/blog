@@ -1,5 +1,6 @@
 ---
 isTimeLine: true
+sticky: 2
 title: Docker 总结 - 从入门到实践
 description: Docker，轻松构建、发布和运行应用！本文将带你深入了解 Docker 的核心概念、基础指令以及实战案例，并详细解析 Docker 的底层原理，助你快速上手 Docker，开启容器化之旅！
 date: 2024-05-17

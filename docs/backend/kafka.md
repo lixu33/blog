@@ -1,5 +1,6 @@
 ---
 isTimeLine: true
+sticky: 3
 title: Kafka 入门指南
 description: Kafka 是一个分布式流平台，用于构建实时数据管道和流应用程序。它具有高吞吐量、低延迟、可扩展性和持久性的特点，使其成为处理大量数据的理想选择。
 date: 2024-05-20

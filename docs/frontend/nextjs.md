@@ -1,5 +1,6 @@
 ---
 isTimeLine: true
+sticky: 1
 title: Next.js - 从零开始构建全栈应用
 description: 这是一篇针对初学者的 Next.js 入门指南，带你从零开始构建一个完整的全栈应用，涵盖路由、数据获取、样式设计、API 路由等核心概念。
 date: 2024-05-13
