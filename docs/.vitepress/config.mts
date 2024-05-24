@@ -18,7 +18,19 @@ export default defineConfig({
   lastUpdated: true,
   // 详见：https://vitepress.dev/zh/reference/site-config#head
   head: [
-    ['link', { rel: 'icon', href: '${base}favicon.ico' }]
+    ['link', { rel: 'icon', href: '${base}favicon.ico' }],
+    [
+      'script',
+      { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-231Y53GHPL' }
+    ],
+    [
+      'script',
+      {},
+      `window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-231Y53GHPL');`
+    ]
   ],
   themeConfig: {
     // 展示 2,3 级标题在目录中
