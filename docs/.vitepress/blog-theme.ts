@@ -3,7 +3,7 @@ import { getThemeConfig } from '@sugarat/theme/node'
 import type { Theme } from '@sugarat/theme'
 
 const baseUrl = 'https://blog.lixu.dev'
-const copyright = 'MIT License | 李旭'
+const copyright = 'MIT License | 烟霞不系舟'
 const RSS: Theme.RSSOptions = {
   title: '总要写点什么',
   baseUrl,
@@ -50,7 +50,7 @@ const blogTheme = getThemeConfig({
   themeColor: 'el-blue',
 
   // 文章默认作者
-  author: '李旭',
+  author: '烟霞不系舟',
 
   // 友链
   friend: [

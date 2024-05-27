@@ -2,7 +2,7 @@
   "name": "blog",
   "version": "1.0.0",
   "private": true,
-  "author": "李旭",
+  "author": "烟霞不系舟",
   "license": "MIT",
   "scripts": {
     "dev": "vitepress dev docs",
