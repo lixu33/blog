@@ -61,6 +61,10 @@ export default defineConfig({
           {
             text: 'Alist',
             link: 'https://alist.lixu.dev'
+          },
+          {
+            text: 'AI图片',
+            link: 'https://imgen.lixu.dev'
           }
         ]
       }
