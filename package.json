@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
-    "@sugarat/theme": "^0.3.4",
+    "@sugarat/theme": "^0.4.3",
     "element-plus": "^2.7.2",
     "vitepress-plugin-rss": "^0.2.4",
     "vue": "3.4.26"
@@ -22,7 +22,7 @@
   "devDependencies": {
     "sass": "^1.76.0",
     "typescript": "^5.4.5",
-    "vitepress": "1.1.4"
+    "vitepress": "^1.2.3"
   },
   "pnpm": {
     "peerDependencyRules": {
