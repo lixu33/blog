@@ -137,8 +137,7 @@ public class NettyServer {
 
 ### 4.1 Reactor模式
 
-Netty基于Reactor模式，实现了高效的事件处理模型。
-
+Netty的设计基于Reactor模式的变体。在这个模式中，Acceptor扮演着接受新连接的关键角色。以下是Reactor模式的核心实现。
 ```java
 public class Reactor implements Runnable {
     final Selector selector;
@@ -185,6 +184,38 @@ public class Reactor implements Runnable {
     }
 }
 ```
+
+#### Acceptor关联的关键点
+
+1. **Acceptor的创建和附加**
+   - 在Reactor的构造函数中，创建ServerSocketChannel并注册到Selector上。
+   - 关键行: `SelectionKey sk = serverSocket.register(selector, SelectionKey.OP_ACCEPT);`
+   - 紧接着: `sk.attach(new Acceptor());`
+   - 这里将Acceptor实例附加到了ServerSocketChannel的SelectionKey上。
+
+2. **Acceptor的触发**
+   - 在Reactor的run方法中，当select()返回时，遍历selectedKeys。
+   - 通过dispatch方法处理每个就绪的SelectionKey。
+   - dispatch方法中，从SelectionKey获取附加的对象（即Acceptor），并运行它。
+
+3. **Acceptor的职责**
+   - Acceptor的run方法被调用时，它接受新的连接：`SocketChannel c = serverSocket.accept();`
+   - 对于每个新连接，创建一个新的Handler来处理后续的I/O操作。
+
+4. **与Netty的关系**
+   - 在Netty中，这个模式被进一步抽象和优化。
+   - NioEventLoop相当于这里的Reactor。
+   - ServerBootstrap中配置的ChannelInitializer扮演了类似Acceptor的角色。
+   - 新连接被接受后，ChannelInitializer负责设置ChannelPipeline，类似于这里创建新Handler。
+
+#### 设计优势
+
+1. **职责分离**: Acceptor专注于接受新连接，而Handler处理具体的I/O操作。
+2. **可扩展性**: 可以轻松地增加多个Reactor线程来处理I/O操作，而保持单一的Acceptor。
+3. **非阻塞设计**: 整个过程都是非阻塞的，提高了系统的并发处理能力。
+4. **灵活性**: 通过SelectionKey的attachment机制，可以灵活地关联不同的处理器。
+
+这种设计允许Netty高效地处理大量并发连接，同时保持代码的清晰结构和可维护性。Acceptor的巧妙关联确保了新连接能够被迅速接受并分发到适当的处理器，是Reactor模式高效运作的关键部分。
 
 ### 4.2 EventLoop线程模型
 
