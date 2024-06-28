@@ -1,6 +1,6 @@
 ---
 isTimeLine: true
-title: 深入理解JNA：Java原生访问的利器
+title: JNA：Java原生访问的利器
 description: 本文将深入探讨JNA（Java Native Access），涵盖其原理、使用方法、性能优化以及实际应用等方面，帮助你全面掌握这一强大的Java技术。
 date: 2024-06-03
 tags:
