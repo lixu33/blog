@@ -17,6 +17,12 @@ importers:
       element-plus:
         specifier: ^2.7.2
         version: 2.7.8(vue@3.4.26(typescript@5.5.4))
+      pagefind:
+        specifier: ^1.1.0
+        version: 1.1.0
+      vitepress-plugin-pagefind:
+        specifier: ^0.4.10
+        version: 0.4.10(pagefind@1.1.0)(typescript@5.5.4)
       vitepress-plugin-rss:
         specifier: ^0.2.4
         version: 0.2.9(vitepress@1.3.1(@algolia/client-search@4.24.0)(async-validator@4.2.5)(fuse.js@6.6.2)(postcss@8.4.40)(sass@1.77.8)(search-insights@2.15.0)(typescript@5.5.4))

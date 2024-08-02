@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import { pagefindPlugin } from 'vitepress-plugin-pagefind'
 
 // 导入主题的配置
 import { blogTheme } from './blog-theme'
@@ -75,5 +76,8 @@ export default defineConfig({
         link: 'https://github.com/lixu33/blog'
       }
     ]
+  },
+  vite: {
+    plugins: [pagefindPlugin()],
   }
 })
