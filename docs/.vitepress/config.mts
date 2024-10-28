@@ -17,6 +17,17 @@ export default defineConfig({
   title: '总要写点什么',
   description: '基于 vitepress 实现',
   lastUpdated: true,
+  locales: {
+    root: {
+      label: '简体中文',
+      lang: 'zh-cn'
+    },
+    en: {
+      label: 'English',
+      lang: 'en',
+      link: '/en/'
+    }
+  },
   // 详见：https://vitepress.dev/zh/reference/site-config#head
   head: [
     ['link', { rel: 'icon', href: '${base}favicon.ico' }],

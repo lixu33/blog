@@ -1,6 +1,7 @@
 // 主题独有配置
 import { getThemeConfig } from '@sugarat/theme/node'
 import type { Theme } from '@sugarat/theme'
+import { themeEN } from './locales/en'
 
 const baseUrl = 'https://blog.lixu.dev'
 const copyright = 'MIT License | 烟霞不系舟'
@@ -14,13 +15,33 @@ const RSS: Theme.RSSOptions = {
 
 // 所有配置项，详见文档: https://theme.sugarat.top/
 const blogTheme = getThemeConfig({
+  locales: {
+    en: themeEN
+  },
   // 开启RSS支持
   RSS,
   search: {
+    pageResultCount: 5,
     btnPlaceholder: '搜索',
-    placeholder: '搜索文档',
-    emptyText: '没有搜索历史',
-    heading: '共有 {{searchResult}} 个搜索结果'
+    placeholder: '搜索文章',
+    emptyText: '没有找到相关文章',
+    heading: '结果数: {{searchResult}} 条。',
+    toSelect: '选择',
+    toClose: '关闭',
+    toNavigate: '移动',
+    searchBy: 'Powered by',
+    locales: {
+      en: {
+        btnPlaceholder: 'Search',
+        placeholder: 'Search Docs',
+        emptyText: 'No results found',
+        heading: 'Total: {{searchResult}} search results.',
+        toSelect: 'to select',
+        toClose: 'to close',
+        toNavigate: 'to navigate',
+        searchBy: 'Search by',
+      }
+    }
   },
 
   comment: {
