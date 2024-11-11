@@ -12,6 +12,7 @@ export default defineConfig({
   sitemap: {
     hostname: 'https://blog.lixu.dev',
   },
+  cleanUrls: true,
   base,
   lang: 'zh-CN',
   title: '总要写点什么',
