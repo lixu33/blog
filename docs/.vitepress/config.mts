@@ -76,8 +76,8 @@ export default defineConfig({
             link: 'https://alist.lixu.dev'
           },
           {
-            text: 'AI图片',
-            link: 'https://imgen.lixu.dev'
+            text: 'AI唱歌评分',
+            link: 'https://singing-coach.lixu.dev'
           }
         ]
       }
