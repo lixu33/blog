@@ -32,6 +32,7 @@ export default defineConfig({
   // 详见：https://vitepress.dev/zh/reference/site-config#head
   head: [
     ['link', { rel: 'icon', href: '${base}favicon.ico' }],
+    ['meta', { name: "baidu-site-verification", content: "codeva-4Bhgo9DJEi" }],
     [
       'script',
       { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-231Y53GHPL' }
