@@ -1,6 +1,6 @@
 ---
 isTimeLine: true
-title: Kubernetes 初学者指南
+title: Kubernetes 入门指南
 description: 了解 Kubernetes 的基本概念、架构与原理，学习如何安装、配置、部署和管理容器化应用，掌握服务发现、负载均衡、配置管理和监控日志的最佳实践。
 date: 2024-05-20
 tags:

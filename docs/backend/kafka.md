@@ -1,7 +1,7 @@
 ---
 isTimeLine: true
 sticky: 3
-title: Kafka：高性能分布式流处理平台
+title: Kafka 分布式流处理平台
 description: 本文深入探讨了Kafka的核心概念、架构设计、工作原理和性能优化技巧，为高级程序员提供全面的Kafka技术洞察。
 date: 2024-05-20
 tags:

@@ -1,6 +1,6 @@
 ---
 isTimeLine: true
-title: Netty：高性能网络应用框架
+title: Netty 高性能网络框架
 description: 本文深入探讨了Netty的核心原理、架构设计、关键组件和性能优化策略。
 date: 2024-06-28
 tags:

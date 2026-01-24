@@ -1,6 +1,6 @@
 ---
 isTimeLine: true
-title: TypeScript 和 ES6 语法
+title: TypeScript 与 ES6 语法
 description: TypeScript 和 ES6 语法。
 date: 2024-05-23
 tags:

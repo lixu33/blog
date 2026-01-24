@@ -1,7 +1,7 @@
 ---
 isTimeLine: true
 sticky: 2
-title: Spring Boot 原理深度解析
+title: Spring Boot 原理解析
 date: 2023-07-15
 description: 深入探讨 Spring Boot 的核心原理，包括自动配置、启动流程和核心注解的工作机制，为高级开发者提供全面的技术洞察。
 tags:

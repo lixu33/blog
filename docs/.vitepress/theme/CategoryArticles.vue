@@ -10,11 +10,19 @@ interface Props {
 const props = defineProps<Props>()
 
 // 使用 VitePress 的 useData 获取主题配置
-const { theme } = useData<Theme.Config>()
+const { theme, localeIndex, site } = useData<Theme.Config>()
 
-// 获取文章数据
+// 获取文章数据 - 支持多语言
 const allArticles = computed(() => {
-  return theme.value?.blog?.pagesData || []
+  const localeKeys = Object.keys(site.value.locales || {})
+
+  // 如果没有多语言配置，直接返回 pagesData
+  if (localeKeys.length === 0) {
+    return theme.value?.blog?.pagesData || []
+  }
+
+  // 有多语言配置时，返回当前语言的 pagesData
+  return theme.value?.blog?.locales?.[localeIndex.value]?.pagesData || []
 })
 
 // 过滤指定目录下的文章（排除 index.md）

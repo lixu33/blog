@@ -1,6 +1,6 @@
 ---
 isTimeLine: true
-title: 理解 AES 加解密算法
+title: AES 加解密算法详解
 description: 了解 AES 加解密算法的基本原理、使用方法及其在 Java 中的实现。
 date: 2024-05-21
 tags:

@@ -1,6 +1,6 @@
 ---
 isTimeLine: true
-title: Caddy 入门教程：快速搭建现代化 Web 服务器
+title: Caddy 入门教程
 description: Caddy 是一个强大的、易于使用的开源 Web 服务器，以其自动 HTTPS 功能而闻名。
 date: 2024-05-15
 tags:

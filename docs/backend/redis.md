@@ -1,6 +1,6 @@
 ---
 isTimeLine: true
-title: Redis原理深度解析：特性、高性能和高可用性
+title: Redis 原理深度解析
 date: 2024-10-14
 tags:
  - Redis
