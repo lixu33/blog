@@ -8,7 +8,8 @@ tags:
  - 容器编排
  - DevOps
 categories:
- - Kubernetes
+  - DevOps
+  - Kubernetes
 head:
   - - meta
     - name: keywords

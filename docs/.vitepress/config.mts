@@ -21,7 +21,7 @@ export default defineConfig({
   locales: {
     root: {
       label: '简体中文',
-      lang: 'zh-cn'
+      lang: 'zh-CN'
     },
     en: {
       label: 'English',
@@ -56,7 +56,6 @@ export default defineConfig({
     returnToTopLabel: '回到顶部',
     sidebarMenuLabel: '相关文章',
     lastUpdatedText: '上次更新于',
-
     // 设置logo
     logo: '/logo.png',
     nav: [
@@ -64,30 +63,15 @@ export default defineConfig({
       {
         text: '个人链接',
         items: [
-          {
-            text: 'Lobe-Chat',
-            link: 'https://lobe.lixu.dev'
-          },
-          {
-            text: 'IT工具',
-            link: 'https://tools.lixu.dev'
-          },
-          {
-            text: 'Alist',
-            link: 'https://alist.lixu.dev'
-          },
-          {
-            text: 'AI唱歌评分',
-            link: 'https://singing-coach.lixu.dev'
-          }
+          { text: 'Lobe-Chat', link: 'https://lobe.lixu.dev' },
+          { text: 'IT工具', link: 'https://tools.lixu.dev' },
+          { text: 'Alist', link: 'https://alist.lixu.dev' },
+          { text: 'AI唱歌评分', link: 'https://singing-coach.lixu.dev' }
         ]
       }
     ],
     socialLinks: [
-      {
-        icon: 'github',
-        link: 'https://github.com/lixu33/blog'
-      }
+      { icon: 'github', link: 'https://github.com/lixu33/blog' }
     ]
   },
   vite: {

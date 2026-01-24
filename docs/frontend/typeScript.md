@@ -8,7 +8,8 @@ tags:
  - ES6
  - 前端
 categories:
- - 前端
+  - Frontend
+  - 前端
 head:
   - - meta
     - name: keywords

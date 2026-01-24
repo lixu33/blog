@@ -3,10 +3,13 @@ import { defineLocaleConfig } from '@sugarat/theme/node'
 export const themeEN = defineLocaleConfig({
   author: 'Ray',
   hotArticle: {
-    title: 'Hot Article',
-    nextText: 'next',
+    title: '🔥 Hot Articles',
+    nextText: 'Next',
     pageSize: 3,
-    empty: 'empty content'
+    empty: 'No articles yet'
+  },
+  homeTags: {
+    title: '🏷️ Tags'
   },
   comment: {
     type: 'giscus',
@@ -22,6 +25,7 @@ export const themeEN = defineLocaleConfig({
     mobileMinify: false,
   },
   recommend: {
+    title: '📖 Recommended',
     nextText: 'Next',
     sort: 'date'
   },

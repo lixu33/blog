@@ -11,12 +11,12 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
-    "@sugarat/theme": "^0.5.9",
+    "@sugarat/theme": "^0.5.14",
     "element-plus": "^2.7.2",
     "pagefind": "^1.1.0",
     "vitepress-plugin-pagefind": "^0.4.10",
     "vitepress-plugin-rss": "^0.2.4",
-    "vue": "3.4.26"
+    "vue": "^3.5.13"
   },
   "directories": {
     "doc": "docs"

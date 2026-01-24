@@ -4,17 +4,29 @@ sticky: 1
 title: Next.js - 从零开始构建全栈应用
 description: 这是一篇针对初学者的 Next.js 入门指南，带你从零开始构建一个完整的全栈应用，涵盖路由、数据获取、样式设计、API 路由等核心概念。
 date: 2024-05-13
-tags:
- - Next.js
- - React
- - 前端
- - 全栈
+author: 烟霞不系舟
+lang: zh-CN
 categories:
- - 前端
+  - Frontend
+  - Frontend
+tags:
+  - Next.js
+  - React
+  - 前端
+  - 全栈
 head:
   - - meta
     - name: keywords
       content: Next.js, 入门, 教程, 全栈, React, 框架
+  - - meta
+    - property: og:type
+      content: article
+  - - meta
+    - property: og:title
+      content: Next.js - 从零开始构建全栈应用
+  - - meta
+    - property: og:description
+      content: 这是一篇针对初学者的 Next.js 入门指南，带你从零开始构建一个完整的全栈应用，涵盖路由、数据获取、样式设计、API 路由等核心概念。
 ---
 
 # Next.js Dashboard 入门

@@ -6,7 +6,8 @@ date: 2024-05-15
 tags:
  - Web服务器
 categories:
- - Caddy
+  - DevOps
+  - Caddy
 head:
   - - meta
     - name: keywords
