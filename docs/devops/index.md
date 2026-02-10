@@ -3,6 +3,7 @@ title: DevOps 运维
 description: 容器化、编排与现代化运维实践，涵盖 Docker、Kubernetes、Caddy 等云原生技术栈。
 lang: zh-CN
 hidden: true
+recommend: 1
 head:
   - - meta
     - name: keywords

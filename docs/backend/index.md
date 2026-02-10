@@ -3,6 +3,7 @@ title: 后端技术
 description: Java 后端开发技术栈，涵盖 Spring、Redis、Kafka、Netty 等企业级后端框架与中间件的原理与实践。
 lang: zh-CN
 hidden: true
+recommend: 1
 head:
   - - meta
     - name: keywords
