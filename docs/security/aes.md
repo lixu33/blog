@@ -4,16 +4,17 @@ title: AES 加解密算法详解
 description: 了解 AES 加解密算法的基本原理、使用方法及其在 Java 中的实现。
 date: 2024-05-21
 tags:
- - AES
- - 对称加密
- - Java
+- AES
+- 对称加密
+- Java
 categories:
-  - Security
-  - 加密技术
+- 信息安全
+- Security
+- 加密技术
 head:
-  - - meta
-    - name: keywords
-      content: AES, 加密, 解密, 对称加密, Java, 数据安全, 加密算法
+- - meta
+  - name: keywords
+    content: AES, 加密, 解密, 对称加密, Java, 数据安全, 加密算法
 ---
 
 # 理解 AES 加解密算法

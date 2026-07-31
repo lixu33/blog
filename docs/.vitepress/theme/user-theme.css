@@ -1,26 +1,36 @@
-/* 所有变量：https://github.com/vuejs/vitepress/blob/main/src/client/theme-default/styles/vars.css */
-/* 自定义主题色示例，如下 */
+/* 自定义主题色：青蓝系，与首页浅蓝灰背景图协调 */
+/* 变量参考：https://github.com/vuejs/vitepress/blob/main/src/client/theme-default/styles/vars.css */
 
-/* 浅色模式使用的变量 */
+/* 浅色模式 */
 html[theme] {
-  --vp-c-user-1:red;
-  --vp-c-user-2:blue;
-  --vp-c-user-3:green;
-  --vp-c-user-soft:rgba(255,0,0,.5);
+  --vp-c-user-1: #3b82f6;            /* 主色：亮蓝 */
+  --vp-c-user-2: #2563eb;            /* 深一档 */
+  --vp-c-user-3: #1d4ed8;            /* 更深 */
+  --vp-c-user-soft: rgba(59, 130, 246, 0.12);
 }
 
-/* 深色模式使用的变量 */
+/* 深色模式 */
 html[theme].dark {
-  --vp-c-user-1:yellow;
-  --vp-c-user-2:purple;
-  --vp-c-user-3:orange;
-  --vp-c-user-soft:rgba(255,255,0,.5);
+  --vp-c-user-1: #60a5fa;            /* 主色：浅蓝（深色背景下更亮） */
+  --vp-c-user-2: #3b82f6;
+  --vp-c-user-3: #2563eb;
+  --vp-c-user-soft: rgba(96, 165, 250, 0.15);
 }
 
 /* 覆盖默认变量 */
-html[theme],html[theme].dark {
+html[theme], html[theme].dark {
   --vp-c-brand-1: var(--vp-c-user-1);
   --vp-c-brand-2: var(--vp-c-user-2);
   --vp-c-brand-3: var(--vp-c-user-3);
   --vp-c-brand-soft: var(--vp-c-user-soft);
+}
+
+/* 首页 hero 文字在浅色背景图上的可读性 */
+html[theme] .VPHome .name,
+html[theme] .VPHome .text {
+  text-shadow: 0 2px 12px rgba(255, 255, 255, 0.85);
+}
+html[theme].dark .VPHome .name,
+html[theme].dark .VPHome .text {
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
 }

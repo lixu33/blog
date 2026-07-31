@@ -4,15 +4,18 @@ title: 深入 Spring 源码解析
 description: 本文通过分析Spring框架的源代码,深入剖析IoC容器、AOP、事务管理和SpringMVC的核心实现原理,为高级Java开发者提供深度技术洞察。
 date: 2024-06-28
 tags:
- - Spring
- - 源码分析
+- Spring
+- 源码分析
+- IoC
+- AOP
 categories:
-  - Backend
-  - 后端开发
+- 后端技术
+- Backend
+- 后端开发
 head:
-  - - meta
-    - name: keywords
-      content: Spring源码,IoC容器,AOP实现,事务管理,SpringMVC原理,Java框架
+- - meta
+  - name: keywords
+    content: Spring源码,IoC容器,AOP实现,事务管理,SpringMVC原理,Java框架
 ---
 
 # 深入Spring源码：IoC、AOP、事务管理与SpringMVC的核心实现

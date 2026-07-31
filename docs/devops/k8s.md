@@ -4,16 +4,17 @@ title: Kubernetes 入门指南
 description: 了解 Kubernetes 的基本概念、架构与原理，学习如何安装、配置、部署和管理容器化应用，掌握服务发现、负载均衡、配置管理和监控日志的最佳实践。
 date: 2024-05-20
 tags:
- - Kubernetes
- - 容器编排
- - DevOps
+- Kubernetes
+- 容器编排
+- DevOps
 categories:
-  - DevOps
-  - Kubernetes
+- DevOps 运维
+- DevOps
+- Kubernetes
 head:
-  - - meta
-    - name: keywords
-      content: Kubernetes, Kubernetes 初学者指南, 容器编排, Kubernetes 监控
+- - meta
+  - name: keywords
+    content: Kubernetes, Kubernetes 初学者指南, 容器编排, Kubernetes 监控
 ---
 
 # Kubernetes 初学者指南

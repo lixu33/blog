@@ -1,20 +1,22 @@
 ---
 isTimeLine: true
 title: Clawdbot 开源 AI 助理部署指南
-description: Clawdbot 是一个开源的 24/7 在线 AI 个人助理，支持在本地或 VPS 上运行，集成 WhatsApp、Telegram 等多个消息平台，具备持久化记忆、主动通知和任务自动化能力。本文详细介绍 Clawdbot 的核心概念、工作原理、功能特性以及完整的部署流程。
+description: Clawdbot 是一个开源的 24/7 在线 AI 个人助理，支持在本地或 VPS 上运行，集成 WhatsApp、Telegram 等多个消息平台，具备持久化记忆、主动通知和任务自动化能力。本文详细介绍
+  Clawdbot 的核心概念、工作原理、功能特性以及完整的部署流程。
 date: 2026-01-26
 tags:
-  - AI Agent
-  - 开源工具
-  - 自动化
-  - 个人助理
+- AI Agent
+- 开源工具
+- 自动化
+- 个人助理
 categories:
-  - AI
-  - 人工智能应用
+- 人工智能
+- AI
+- 人工智能应用
 head:
-  - - meta
-    - name: keywords
-      content: Clawdbot,AI助理,AI Agent,开源AI,个人助理,自动化,Claude,ChatGPT,消息机器人
+- - meta
+  - name: keywords
+    content: Clawdbot,AI助理,AI Agent,开源AI,个人助理,自动化,Claude,ChatGPT,消息机器人
 ---
 
 # Clawdbot 开源 AI 助理部署指南

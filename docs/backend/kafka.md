@@ -5,16 +5,16 @@ title: Kafka 分布式流处理平台
 description: 本文深入探讨了Kafka的核心概念、架构设计、工作原理和性能优化技巧，为高级程序员提供全面的Kafka技术洞察。
 date: 2024-05-20
 tags:
- - Kafka
- - 分布式系统
- - 流处理
+- Kafka
+- 分布式系统
+- 流处理
 categories:
-  - Backend
-  - 后端技术
+- 后端技术
+- Backend
 head:
-  - - meta
-    - name: keywords
-      content: Kafka,分布式消息队列,流处理,高吞吐量,低延迟
+- - meta
+  - name: keywords
+    content: Kafka,分布式消息队列,流处理,高吞吐量,低延迟
 ---
 
 # 深入解析Kafka原理: 高性能分布式流处理平台

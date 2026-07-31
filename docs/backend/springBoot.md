@@ -5,16 +5,17 @@ title: Spring Boot 原理解析
 date: 2023-07-15
 description: 深入探讨 Spring Boot 的核心原理，包括自动配置、启动流程和核心注解的工作机制，为高级开发者提供全面的技术洞察。
 tags:
- - Spring Boot
- - Java
- - 微服务
+- Spring Boot
+- Java
+- 微服务
 categories:
-  - Backend
-  - 后端开发
+- 后端技术
+- Backend
+- 后端开发
 head:
-  - - meta
-    - name: keywords
-      content: Spring Boot,自动配置,条件化配置,启动流程,注解驱动
+- - meta
+  - name: keywords
+    content: Spring Boot,自动配置,条件化配置,启动流程,注解驱动
 ---
 
 # Spring Boot 原理深度解析

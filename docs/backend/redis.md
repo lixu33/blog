@@ -3,16 +3,17 @@ isTimeLine: true
 title: Redis 原理深度解析
 date: 2024-10-14
 tags:
- - Redis
- - 缓存
- - 高性能
+- Redis
+- 缓存
+- 高性能
 categories:
-  - Backend
-  - 数据库技术
+- 后端技术
+- Backend
+- 数据库技术
 head:
-  - - meta
-    - name: keywords
-      content: Redis,内存数据库,高性能,高可用性,SDS,压缩列表,集群
+- - meta
+  - name: keywords
+    content: Redis,内存数据库,高性能,高可用性,SDS,压缩列表,集群
 ---
 
 # Redis原理深度解析：特性、高性能和高可用性

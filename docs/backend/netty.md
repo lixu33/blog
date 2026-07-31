@@ -4,17 +4,17 @@ title: Netty 高性能网络框架
 description: 本文深入探讨了Netty的核心原理、架构设计、关键组件和性能优化策略。
 date: 2024-06-28
 tags:
- - Netty
- - 网络编程
- - Java
- - NIO
+- Netty
+- 网络编程
+- Java
+- NIO
 categories:
-  - Backend
-  - 后端技术
+- 后端技术
+- Backend
 head:
-  - - meta
-    - name: keywords
-      content: Netty,异步事件驱动,网络应用框架,高性能,低延迟
+- - meta
+  - name: keywords
+    content: Netty,异步事件驱动,网络应用框架,高性能,低延迟
 ---
 
 # Netty原理深度解析：高性能网络应用框架

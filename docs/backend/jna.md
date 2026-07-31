@@ -6,15 +6,16 @@ date: 2024-06-03
 author: 烟霞不系舟
 lang: zh-CN
 categories:
-  - Backend
+- 后端技术
+- Backend
 tags:
-  - Java
-  - JNA
-  - JNI
+- Java
+- JNA
+- JNI
 head:
-  - - meta
-    - name: keywords
-      content: JNA, Java Native Access, JNI, Java本地方法调用, JNA教程
+- - meta
+  - name: keywords
+    content: JNA, Java Native Access, JNI, Java本地方法调用, JNA教程
 ---
 
 # 深入理解JNA：Java原生访问的利器

@@ -4,16 +4,17 @@ title: TypeScript 与 ES6 语法
 description: TypeScript 和 ES6 语法。
 date: 2024-05-23
 tags:
- - TypeScript
- - ES6
- - 前端
+- TypeScript
+- ES6
+- 前端
 categories:
-  - Frontend
-  - 前端
+- 前端技术
+- Frontend
+- 前端
 head:
-  - - meta
-    - name: keywords
-      content: TypeScript 语法, ES6 语法
+- - meta
+  - name: keywords
+    content: TypeScript 语法, ES6 语法
 ---
 # TypeScript 和 ES6 语法
 
