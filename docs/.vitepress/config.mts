@@ -16,7 +16,7 @@ export default defineConfig({
   base,
   lang: 'zh-CN',
   title: '总要写点什么',
-  description: '基于 vitepress 实现',
+  description: '烟霞不系舟的个人博客 — AI、前后端、DevOps、安全领域的实战经验与技术笔记',
   lastUpdated: true,
   locales: {
     root: {
@@ -33,6 +33,13 @@ export default defineConfig({
   head: [
     ['link', { rel: 'icon', href: `${base}favicon.ico` }],
     ['meta', { name: "baidu-site-verification", content: "codeva-4Bhgo9DJEi" }],
+    // SEO / 社交分享
+    ['meta', { property: 'og:title', content: '总要写点什么' }],
+    ['meta', { property: 'og:description', content: '烟霞不系舟的个人博客 — AI、前后端、DevOps、安全领域的实战经验与技术笔记' }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:url', content: 'https://blog.lixu.dev' }],
+    ['meta', { property: 'og:image', content: 'https://blog.lixu.dev/logo.png' }],
+    ['meta', { name: 'twitter:card', content: 'summary' }],
     [
       'script',
       { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-231Y53GHPL' }
