@@ -20,15 +20,15 @@ head:
 
 # Hermes Agent 开源 AI 智能体部署指南
 
-想象一下：你的 AI 助理不仅记得你上周说过的话，还会在完成复杂任务后**自动把经验沉淀成技能**，下次遇到类似任务时做得更快更好——它不再是一个固定的聊天机器人，而是一个会"成长"的数字同事。
+市面上的 AI 助手大多像"一次性用品"：对话结束，记忆清零；换个人问，它重新开始。**Hermes Agent 想改变这件事**——它是目前少数真正内置"学习闭环"的开源智能体：完成任务后自动把过程沉淀成技能，下次遇到同类任务直接复用，越用越快，越用越懂你。
 
-这不是科幻，而是 **Hermes Agent** 正在实现的现实。由 Nous Research 打造，它被称为 "The agent that grows with you"（与你一同成长的智能体）。
+它出自 [Nous Research](https://nousresearch.com)——开源模型 Hermes、Nomos、Psyche 系列的创造者——官方定位是 "The agent that grows with you"（与你一同成长的智能体）。在 2026 年的开源 Agent 浪潮里，它用"自我进化"这个差异点，GitHub 已积累 223k+ stars。
 
 ## 1. 什么是 Hermes Agent？
 
 ### 1.1 核心定义
 
-Hermes Agent 是 [Nous Research](https://nousresearch.com) 开源的自主 AI 智能体框架（MIT 许可证，GitHub 223k+ stars）。它与传统 AI 助手的最大区别在于：**内置了唯一的学习闭环**——
+Hermes Agent 是一个开源的、自托管的自主 AI 智能体框架（MIT 许可证），可以部署在本地、VPS、Docker 或 Serverless 基础设施上。它的核心特征不是"更聪明的对话"，而是**持续进化的能力**：
 
 - 从经验中创建技能（Skill）
 - 在使用过程中持续改进技能
@@ -36,7 +36,7 @@ Hermes Agent 是 [Nous Research](https://nousresearch.com) 开源的自主 AI �
 - 搜索自己过去的对话
 - 跨会话构建对你的深度理解
 
-简单说：传统 AI 是"对话完就忘"，Hermes Agent 是"越用越懂你，越用越能干"。
+用一句话概括：**传统 AI 是"用完即弃"的工具，Hermes Agent 是"越用越值钱"的同事。**
 
 ### 1.2 它不是什么
 
