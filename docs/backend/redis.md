@@ -1,6 +1,7 @@
 ---
 isTimeLine: true
 title: Redis 原理深度解析
+description: 深入解析 Redis 的核心技术特性、高性能原理与高可用方案，涵盖单线程模型、IO 多路复用、持久化、主从复制、哨兵与集群等关键机制。
 date: 2024-10-14
 tags:
 - Redis

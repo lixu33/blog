@@ -690,7 +690,7 @@ graph TD
 
 ```dockerfile
 # Dockerfile 示例
-FROM node:18-alpine
+FROM node:24-alpine
 
 # 创建非特权用户
 RUN addgroup -S openclaw && adduser -S openclaw -G openclaw

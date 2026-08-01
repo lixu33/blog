@@ -31,7 +31,7 @@ head:
 
 # Next.js Dashboard 入门
 
-本文将总结如何使用 Next.js 构建一个简单的 Dashboard 应用。我们将使用 Next.js 14 版本，并结合 Tailwind CSS 进行样式设计，创建一个美观且功能完善的管理后台界面。
+本文将总结如何使用 Next.js 构建一个简单的 Dashboard 应用。我们将使用 Next.js 16 版本（当前稳定版），并结合 Tailwind CSS 进行样式设计，创建一个美观且功能完善的管理后台界面。
 
 ## 1. 项目初始化
 

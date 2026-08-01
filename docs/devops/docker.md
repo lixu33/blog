@@ -99,8 +99,8 @@ Dockerfile 是一个文本文件，包含构建 Docker 镜像的指令，如同�
 ### 4.1  示例：构建 Node.js 应用镜像
 
 ```dockerfile
-# 使用 Node.js 16 作为基础镜像
-FROM node:16
+# 使用 Node.js 24 (LTS) 作为基础镜像
+FROM node:24
 
 # 设置工作目录
 WORKDIR /app
@@ -123,7 +123,7 @@ CMD ["node", "app.js"]
 
 ### 4.2  解释：
 
-1. `FROM node:16`:  指定基础镜像，这里使用官方提供的 Node.js 16 镜像。
+1. `FROM node:24`:  指定基础镜像，这里使用官方提供的 Node.js 24 (LTS) 镜像。
 2. `WORKDIR /app`: 设置容器内工作目录为 `/app`，后续命令都在此目录下执行。
 3. `COPY package*.json ./`:  复制 `package.json` 和 `package-lock.json` 文件到工作目录，用于安装依赖。
 4. `RUN npm install`:  在容器中执行 `npm install` 命令安装应用依赖。
@@ -157,8 +157,8 @@ app.listen(port, () => {
 在项目根目录下创建 `Dockerfile` 文件，内容如下：
 
 ```dockerfile
-# 使用 Node.js 16 作为基础镜像
-FROM node:16
+# 使用 Node.js 24 (LTS) 作为基础镜像
+FROM node:24
 
 # 设置工作目录
 WORKDIR /app
