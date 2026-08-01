@@ -30,6 +30,20 @@ const blogTheme = getThemeConfig({
   themeColor: 'el-blue',
   // 文章默认作者
   author: '烟霞不系舟',
+  // 评论（giscus）——放顶层，中文/英文站都生效
+  // 注意：曾只配置在 locales/en.ts，导致中文文章页无评论
+  comment: {
+    type: 'giscus',
+    options: {
+      repo: 'lixu33/blog',
+      repoId: 'R_kgDOL5oFuA',
+      category: 'Announcements',
+      categoryId: 'DIC_kwDOL5oFuM4CfhlD',
+      inputPosition: 'top'
+    },
+    label: '评论',
+    mobileMinify: false,
+  },
   // 首页布局：split 分栏头像 + 数据分析卡片（文章总数/本月更新/本周更新）
   home: {
     avatarMode: 'split',
