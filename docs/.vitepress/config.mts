@@ -73,6 +73,7 @@ export default defineConfig({
     logo: '/logo.png',
     nav: [
       { text: '首页', link: '/' },
+      { text: '时间线', link: '/timeline' },
       {
         text: '个人链接',
         items: [

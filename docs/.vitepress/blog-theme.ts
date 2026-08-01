@@ -30,6 +30,17 @@ const blogTheme = getThemeConfig({
   themeColor: 'el-blue',
   // 文章默认作者
   author: '烟霞不系舟',
+  // 首页布局：split 分栏头像 + 数据分析卡片（文章总数/本月更新/本周更新）
+  home: {
+    avatarMode: 'split',
+    analysis: {
+      articles: {
+        title: ['文章总数', '本月更新', '本周更新']
+      }
+    }
+  },
+  // 首页标签云
+  homeTags: true,
   // 看板娘（l2d-widget）：少前 Kar98k，PC 与移动端均显示，移动端单独小尺寸
   oml2d: {
     model: {

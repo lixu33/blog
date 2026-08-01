@@ -1,5 +1,6 @@
 import BlogTheme from '@sugarat/theme'
 import CategoryArticles from './CategoryArticles.vue'
+import TimelineArchive from './TimelineArchive.vue'
 import { defineComponent, h } from 'vue'
 
 // 自定义样式重载
@@ -24,5 +25,6 @@ export default {
     BlogTheme.enhanceApp?.({ app } as any)
     // 注册全局组件
     app.component('CategoryArticles', CategoryArticles)
+    app.component('TimelineArchive', TimelineArchive)
   }
 }
