@@ -60,7 +60,7 @@ const blogTheme = getThemeConfig({
     model: {
       path: 'https://model.hacxy.cn/Kar98k-normal/model.json',
     },
-    position: 'bottom-right',
+    position: 'bottom-left',
     size: { width: 220, height: 220 },
     mobileDisplay: true,
     mobileSize: { width: 130, height: 130 },
