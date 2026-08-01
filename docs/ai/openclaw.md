@@ -379,10 +379,10 @@ graph TD
 
 ```bash
 # macOS / Linux
-curl -fsSL https://clawd.bot/install.sh | bash
+curl -fsSL https://openclaw.ai/install.sh | bash
 
 # 或使用 wget
-wget -O - https://clawd.bot/install.sh | bash
+wget -O - https://openclaw.ai/install.sh | bash
 ```
 
 **安装过程示意：**
@@ -396,7 +396,7 @@ wget -O - https://clawd.bot/install.sh | bash
 ✓ Downloading OpenClaw
 ✓ Setting up directory structure
 
-📁 Installation directory: /usr/local/clawd
+📁 Installation directory: ~/.openclaw
 🔧 Configuration wizard starting...
 ```
 
@@ -480,9 +480,9 @@ Step 3: Get your Chat ID
 Send a message to your Telegram bot to test:
   Example: "Hello, what can you do?"
 
-Configuration file: ~/.clawd/config.yaml
-Logs: ~/.clawd/logs/
-Memory: ~/.clawd/memory/
+Configuration file: ~/.openclaw/openclaw.json
+Logs: ~/.openclaw/logs/
+Memory: ~/.openclaw/memory/
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -492,29 +492,35 @@ Memory: ~/.clawd/memory/
 
 ```bash
 # 创建 systemd 服务
-sudo tee /etc/systemd/system/openclaw.service > /dev/null <<EOF
+sudo tee /etc/systemd/system/openclaw-gateway.service > /dev/null <<EOF
 [Unit]
-Description=OpenClaw AI Assistant
-After=network.target
+Description=OpenClaw Gateway
+After=network-online.target
+Wants=network-online.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
 
 [Service]
-Type=simple
-User=$USER
-WorkingDirectory=/usr/local/clawd
-ExecStart=/usr/local/clawd/start.sh
+ExecStart=/usr/local/bin/openclaw gateway --port 18789
 Restart=always
-RestartSec=10
+RestartSec=5
+RestartPreventExitStatus=78
+TimeoutStopSec=30
+TimeoutStartSec=30
+SuccessExitStatus=0 143
+OOMPolicy=continue
+KillMode=control-group
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
 # 启用并启动服务
-sudo systemctl enable openclaw
-sudo systemctl start openclaw
+sudo systemctl daemon-reload
+sudo systemctl enable --now openclaw-gateway.service
 
 # 查看状态
-sudo systemctl status openclaw
+sudo systemctl status openclaw-gateway
 ```
 
 **设置定时任务：**
@@ -524,10 +530,10 @@ sudo systemctl status openclaw
 crontab -e
 
 # 添加每日简报（每天早上 8 点）
-0 8 * * * /usr/local/clawd/skills/daily-briefing.sh
+0 8 * * * ~/.openclaw/skills/daily-briefing.sh
 
 # 添加每周总结（每周五下午 5 点）
-0 17 * * 5 /usr/local/clawd/skills/weekly-summary.sh
+0 17 * * 5 ~/.openclaw/skills/weekly-summary.sh
 ```
 
 ### 4.3 推荐配置建议
@@ -535,7 +541,7 @@ crontab -e
 **新手友好配置：**
 ```yaml
 platform: Telegram
-model: Claude Opus 4.5
+model: Claude Opus 5
 hosting: Local (laptop/desktop)
 integrations:
   - None (start simple)
@@ -545,7 +551,7 @@ cost: ~$20/month (API usage only)
 **进阶用户配置：**
 ```yaml
 platform: Telegram + WhatsApp
-model: Claude Opus 4.5 + GPT-4
+model: Claude Opus 5 + GPT-4o
 hosting: DigitalOcean VPS ($10/month)
 integrations:
   - Gmail
@@ -603,8 +609,8 @@ pie title OpenClaw 月度成本分布
 **1. API 使用优化**
 ```yaml
 策略一：混合模型
-  - 简单任务使用 GPT-3.5/Claude Haiku (便宜)
-  - 复杂任务使用 GPT-4/Claude Opus (贵但准确)
+  - 简单任务使用 Claude Haiku 4.5 (便宜)
+  - 复杂任务使用 Claude Opus 5 (贵但准确)
 
 策略二：本地模型
   - 使用 Ollama 运行开源模型
@@ -706,7 +712,7 @@ CMD ["node", "start.js"]
 **2. 配置权限白名单**
 
 ```yaml
-# ~/.clawd/permissions.yaml
+# ~/.openclaw/permissions.yaml
 allowed_commands:
   - git
   - npm
@@ -739,8 +745,8 @@ security add-generic-password \
   -w "your-api-key"
 
 # Linux (使用环境变量 + .env 文件)
-echo "ANTHROPIC_API_KEY=your-key" > ~/.clawd/.env
-chmod 600 ~/.clawd/.env
+echo "ANTHROPIC_API_KEY=your-key" > ~/.openclaw/.env
+chmod 600 ~/.openclaw/.env
 ```
 
 **4. 网络访问限制**
@@ -784,7 +790,7 @@ sequenceDiagram
 2. **数据最小化**
    ```bash
    # 定期清理敏感记忆
-   rm ~/.clawd/memory/2026-01-*
+   rm ~/.openclaw/memory/2026-01-*
 
    # 配置记忆保留策略
    memory_retention_days: 30
@@ -793,10 +799,10 @@ sequenceDiagram
 3. **审计日志**
    ```bash
    # 监控 OpenClaw 活动
-   tail -f ~/.clawd/logs/audit.log
+   tail -f ~/.openclaw/logs/audit.log
 
    # 定期检查异常
-   grep "ERROR\|WARN" ~/.clawd/logs/*.log
+   grep "ERROR\|WARN" ~/.openclaw/logs/*.log
    ```
 
 ## 7. 总结与展望
@@ -900,9 +906,7 @@ graph LR
 
 ## 参考资源
 
-- [OpenClaw 官方网站](https://clawd.bot/)
-- [OpenClaw GitHub 仓库](https://github.com/openclaw/openclaw)（20.8k+ stars）
-- [MacStories 深度评测](https://www.macstories.net/stories/openclaw-showed-me-what-the-future-of-personal-ai-assistants-looks-like/)
+- [OpenClaw 官方网站](https://openclaw.ai/)
+- [OpenClaw GitHub 仓库](https://github.com/openclaw/openclaw)（385k+ stars）
 - [安装视频教程](https://www.youtube.com/watch?v=Qkqe-uRhQJE)
-- [UC Strategies 完整指南](https://ucstrategies.com/news/what-is-openclaw-and-why-everyone-is-suddenly-obsessed-with-it/)
 - [社区 Discord 服务器](https://discord.gg/openclaw)

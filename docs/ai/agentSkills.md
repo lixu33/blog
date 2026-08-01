@@ -467,8 +467,8 @@ LLM："好的，运行 git commit -m 'update code'"
 **选项 A：使用 Claude Code CLI**（推荐）
 
 ```bash
-# 安装 Claude Code CLI
-npm install -g @anthropic-ai/claude-code
+# 安装 Claude Code CLI（npm 方式已弃用，官方推荐原生安装器）
+curl -fsSL https://claude.ai/install.sh | bash
 
 # 初始化项目
 claude init
@@ -732,7 +732,7 @@ async function testWeatherSkill() {
   // 多轮对话
   while (true) {
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5',
       max_tokens: 4096,
       system: skill.systemPrompt,
       tools: skill.tools,
@@ -867,7 +867,7 @@ console.log(result);
 
 ```typescript
 const response = await client.messages.create({
-  model: 'claude-sonnet-4-20250514',
+  model: 'claude-sonnet-5',
   max_tokens: 4096,
   thinking: {
     type: 'enabled',
