@@ -1,8 +1,8 @@
 ---
 isTimeLine: true
-title: Clawdbot 开源 AI 助理部署指南
-description: Clawdbot 是一个开源的 24/7 在线 AI 个人助理，支持在本地或 VPS 上运行，集成 WhatsApp、Telegram 等多个消息平台，具备持久化记忆、主动通知和任务自动化能力。本文详细介绍
-  Clawdbot 的核心概念、工作原理、功能特性以及完整的部署流程。
+title: OpenClaw 开源 AI 助理部署指南
+description: OpenClaw 是一个开源的 24/7 在线 AI 个人助理，支持在本地或 VPS 上运行，集成 WhatsApp、Telegram 等多个消息平台，具备持久化记忆、主动通知和任务自动化能力。本文详细介绍
+  OpenClaw 的核心概念、工作原理、功能特性以及完整的部署流程。
 date: 2026-01-26
 tags:
 - AI Agent
@@ -16,28 +16,28 @@ categories:
 head:
 - - meta
   - name: keywords
-    content: Clawdbot,AI助理,AI Agent,开源AI,个人助理,自动化,Claude,ChatGPT,消息机器人
+    content: OpenClaw,AI助理,AI Agent,开源AI,个人助理,自动化,Claude,ChatGPT,消息机器人
 ---
 
-# Clawdbot 开源 AI 助理部署指南
+# OpenClaw 开源 AI 助理部署指南
 
-想象一下，你有一个 AI 助理，它不仅记得你上周说过的话，还能在你还没开口前就主动提醒你重要事项，甚至可以帮你完成电脑上的各种任务——订餐厅、管理邮件、控制智能家居、生成报告。这不再是科幻电影，而是 **Clawdbot** 正在实现的现实。
+想象一下，你有一个 AI 助理，它不仅记得你上周说过的话，还能在你还没开口前就主动提醒你重要事项，甚至可以帮你完成电脑上的各种任务——订餐厅、管理邮件、控制智能家居、生成报告。这不再是科幻电影，而是 **OpenClaw** 正在实现的现实。
 
-Clawdbot 是一个开源的、消息优先的 AI 个人助理，最近在硅谷科技圈引发热议，甚至带火了 Mac mini 的销量。它与传统 AI 助手最大的区别在于：不是你去访问它，而是它融入你的日常通讯工具，成为真正的"24/7 在线员工"。
+OpenClaw 是一个开源的、消息优先的 AI 个人助理，最近在硅谷科技圈引发热议，甚至带火了 Mac mini 的销量。它与传统 AI 助手最大的区别在于：不是你去访问它，而是它融入你的日常通讯工具，成为真正的"24/7 在线员工"。
 
-## 1. 什么是 Clawdbot？
+## 1. 什么是 OpenClaw？
 
 ### 1.1 核心定义
 
-**Clawdbot** 是一个自托管的、本地优先的 AI 助理代理（AI Agent），可以运行在你自己的设备上（Mac、Linux 或 Windows/WSL2），作为一个强大的、始终在线的个人助手。
+**OpenClaw** 是一个自托管的、本地优先的 AI 助理代理（AI Agent），可以运行在你自己的设备上（Mac、Linux 或 Windows/WSL2），作为一个强大的、始终在线的个人助手。
 
-与 ChatGPT、Claude 等需要打开网页或应用的 AI 工具不同，Clawdbot 的设计理念是：
+与 ChatGPT、Claude 等需要打开网页或应用的 AI 工具不同，OpenClaw 的设计理念是：
 
 > 你的 AI 助理应该像真实同事一样，**存在于你的消息应用中**，随时待命，持续记忆，主动服务。
 
 ### 1.2 与传统 AI 助手的区别
 
-| 特性 | 传统 AI（ChatGPT/Siri） | Clawdbot |
+| 特性 | 传统 AI（ChatGPT/Siri） | OpenClaw |
 |:-----|:----------------------|:---------|
 | **交互方式** | 打开特定应用/网站 | 通过常用消息应用（WhatsApp/Telegram） |
 | **记忆能力** | 单次会话或有限上下文 | 无限长期记忆，跨会话保持 |
@@ -50,11 +50,11 @@ Clawdbot 是一个开源的、消息优先的 AI 个人助理，最近在硅谷�
 
 **1. 持久化记忆（Persistent Memory）**
 
-Clawdbot 拥有复杂的内置记忆系统，会自动记录所有对话，提取关键信息并保存为 Markdown 格式的"记忆文件"。随着时间推移，它会越来越了解你的偏好、工作习惯和需求。
+OpenClaw 拥有复杂的内置记忆系统，会自动记录所有对话，提取关键信息并保存为 Markdown 格式的"记忆文件"。随着时间推移，它会越来越了解你的偏好、工作习惯和需求。
 
 **2. 主动通知（Proactive Notifications）**
 
-这是最令人兴奋的功能：Clawdbot 可以在你没有询问的情况下主动推送信息。例如：
+这是最令人兴奋的功能：OpenClaw 可以在你没有询问的情况下主动推送信息。例如：
 - 每天早上 8 点自动发送当日日程摘要
 - 检测到重要邮件时立即通知
 - 定期提醒待办事项
@@ -62,26 +62,26 @@ Clawdbot 拥有复杂的内置记忆系统，会自动记录所有对话，提�
 
 **3. 任务自动化（Task Automation）**
 
-因为 Clawdbot 运行在你的计算机上，它可以：
+因为 OpenClaw 运行在你的计算机上，它可以：
 - 执行 Shell 命令
 - 操作浏览器（填写表单、抓取数据）
 - 管理文件系统
 - 调用各种 API
 - 控制智能家居设备
 
-## 2. Clawdbot 的工作原理
+## 2. OpenClaw 的工作原理
 
 ### 2.1 系统架构
 
-Clawdbot 的架构可以用一个简单的公式表示：
+OpenClaw 的架构可以用一个简单的公式表示：
 
 ```
-消息应用 ⇄ Clawdbot Gateway ⇄ AI 模型 + 工具
+消息应用 ⇄ OpenClaw Gateway ⇄ AI 模型 + 工具
 ```
 
 ```mermaid
 graph LR
-    A[WhatsApp/Telegram] -->|消息| B[Clawdbot Gateway]
+    A[WhatsApp/Telegram] -->|消息| B[OpenClaw Gateway]
     B -->|请求| C[AI 模型<br/>Claude/GPT/Gemini]
     C -->|响应| B
     B -->|调用| D[工具集<br/>浏览器/Shell/API]
@@ -91,7 +91,7 @@ graph LR
 
 **工作流程说明：**
 
-1. 你在 WhatsApp 或 Telegram 中向 Clawdbot 发送消息
+1. 你在 WhatsApp 或 Telegram 中向 OpenClaw 发送消息
 2. Gateway 接收消息并决定如何处理
 3. 将请求发送给配置的 AI 模型（如 Claude Opus）
 4. 模型可能会调用工具（执行命令、查询数据库、控制设备）
@@ -106,13 +106,13 @@ graph LR
 - **运行定时任务**：通过 cron 实现自动化
 - **连接真实服务**：日历、邮件、笔记、智能家居等
 
-这就是为什么 Clawdbot 能实现"主动行为"——Gateway 可以按计划检查条件，并在满足阈值时主动发消息给你。
+这就是为什么 OpenClaw 能实现"主动行为"——Gateway 可以按计划检查条件，并在满足阈值时主动发消息给你。
 
 ### 2.3 本地运行的优势
 
 ```mermaid
 graph TD
-    A[你的设备/VPS] -->|运行| B[Clawdbot Gateway]
+    A[你的设备/VPS] -->|运行| B[OpenClaw Gateway]
     B -->|消息路由| C[本地处理]
     B -->|AI 调用| D[云端 AI 服务<br/>Anthropic/OpenAI]
     C -->|工具执行| E[文件系统]
@@ -130,13 +130,13 @@ graph TD
 
 ### 3.1 完全的计算机控制
 
-Clawdbot 没有传统的"护栏"限制，它几乎可以做你在计算机上能做的任何事情：
+OpenClaw 没有传统的"护栏"限制，它几乎可以做你在计算机上能做的任何事情：
 
 **示例：自动化文件管理**
 
 ```bash
 # 你的指令：整理桌面文件
-# Clawdbot 执行：
+# OpenClaw 执行：
 mkdir -p ~/Desktop/Organized/{Images,Documents,Code}
 mv ~/Desktop/*.png ~/Desktop/Organized/Images/
 mv ~/Desktop/*.pdf ~/Desktop/Organized/Documents/
@@ -147,7 +147,7 @@ mv ~/Desktop/*.js ~/Desktop/Organized/Code/
 
 ```bash
 # 你的指令：生成本周工作报告
-# Clawdbot 会：
+# OpenClaw 会：
 1. 检查 Git 提交记录
 2. 查询任务管理工具（Todoist/Notion）
 3. 汇总会议日程
@@ -157,7 +157,7 @@ mv ~/Desktop/*.js ~/Desktop/Organized/Code/
 
 ### 3.2 无限长期记忆
 
-Clawdbot 的记忆系统基于文件系统，采用 **Markdown 格式存储**：
+OpenClaw 的记忆系统基于文件系统，采用 **Markdown 格式存储**：
 
 ```
 /clawd/
@@ -175,7 +175,7 @@ Clawdbot 的记忆系统基于文件系统，采用 **Markdown 格式存储**：
 # 2026-01-26 Daily Memory
 
 ## Conversations
-- User asked about Clawdbot installation
+- User asked about OpenClaw installation
 - Helped configure Telegram integration
 - Created cron job for daily briefings
 
@@ -198,7 +198,7 @@ Clawdbot 的记忆系统基于文件系统，采用 **Markdown 格式存储**：
 
 ### 3.3 多平台消息集成
 
-Clawdbot 支持的消息平台：
+OpenClaw 支持的消息平台：
 
 | 平台 | 支持状态 | 备注 |
 |:-----|:--------|:-----|
@@ -231,7 +231,7 @@ Clawdbot 支持的消息平台：
 **场景二：邮件智能分类**
 
 ```javascript
-// Clawdbot 可以执行的自动化脚本
+// OpenClaw 可以执行的自动化脚本
 async function processEmails() {
   const emails = await fetchUnreadEmails();
 
@@ -252,10 +252,10 @@ async function processEmails() {
 
 与传统方式相比：
 
-| 传统方式 | Clawdbot 方式 |
+| 传统方式 | OpenClaw 方式 |
 |:--------|:-------------|
 | 1. 打开多个浏览器标签 | 1. 发送研究主题 |
-| 2. 分别搜索信息 | 2. Clawdbot 自动搜索、对比 |
+| 2. 分别搜索信息 | 2. OpenClaw 自动搜索、对比 |
 | 3. 复制粘贴到笔记 | 3. 自动生成摘要和结论 |
 | 4. 手动整理对比 | 4. 保存到 Notion/Obsidian |
 | 5. 容易遗忘上下文 | 5. 下周自动提醒跟进 |
@@ -264,7 +264,7 @@ async function processEmails() {
 
 ```bash
 # 语音消息："晚安"
-# Clawdbot 执行：
+# OpenClaw 执行：
 curl -X PUT "http://philips-hue-bridge/api/lights/all/state" \
   -d '{"on":false}'
 
@@ -275,7 +275,7 @@ curl -X POST "http://sonos-speaker/api/pause"
 
 ### 3.5 集成生态系统
 
-Clawdbot 支持丰富的集成：
+OpenClaw 支持丰富的集成：
 
 **AI 模型（可自选大脑）**
 - Anthropic Claude（推荐）
@@ -307,11 +307,11 @@ Clawdbot 支持丰富的集成：
 - Webhooks（自定义集成）
 - Voice（语音消息转文字/文字转语音）
 
-## 4. 如何部署 Clawdbot
+## 4. 如何部署 OpenClaw
 
 ### 4.1 硬件需求：Mac Mini 神话与真相
 
-最近社交媒体上出现了很多 Mac Mini"堆叠照片"，甚至有人晒出一次购买 40 台 Mac Mini 来运行 Clawdbot。这引发了一个误解：**是否必须购买 Mac Mini？**
+最近社交媒体上出现了很多 Mac Mini"堆叠照片"，甚至有人晒出一次购买 40 台 Mac Mini 来运行 OpenClaw。这引发了一个误解：**是否必须购买 Mac Mini？**
 
 **真相是：大多数情况下不需要！**
 
@@ -388,12 +388,12 @@ wget -O - https://clawd.bot/install.sh | bash
 **安装过程示意：**
 
 ```bash
-🦀 Clawdbot Installer
+🦀 OpenClaw Installer
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ✓ Checking system requirements
 ✓ Installing dependencies
-✓ Downloading Clawdbot
+✓ Downloading OpenClaw
 ✓ Setting up directory structure
 
 📁 Installation directory: /usr/local/clawd
@@ -467,7 +467,7 @@ Step 3: Get your Chat ID
 #### 步骤 4：首次测试
 
 ```bash
-🚀 Starting Clawdbot...
+🚀 Starting OpenClaw...
 
 ✓ Gateway started
 ✓ Connected to Anthropic API
@@ -475,7 +475,7 @@ Step 3: Get your Chat ID
 ✓ Memory system initialized
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎉 Clawdbot is ready!
+🎉 OpenClaw is ready!
 
 Send a message to your Telegram bot to test:
   Example: "Hello, what can you do?"
@@ -492,9 +492,9 @@ Memory: ~/.clawd/memory/
 
 ```bash
 # 创建 systemd 服务
-sudo tee /etc/systemd/system/clawdbot.service > /dev/null <<EOF
+sudo tee /etc/systemd/system/openclaw.service > /dev/null <<EOF
 [Unit]
-Description=Clawdbot AI Assistant
+Description=OpenClaw AI Assistant
 After=network.target
 
 [Service]
@@ -510,11 +510,11 @@ WantedBy=multi-user.target
 EOF
 
 # 启用并启动服务
-sudo systemctl enable clawdbot
-sudo systemctl start clawdbot
+sudo systemctl enable openclaw
+sudo systemctl start openclaw
 
 # 查看状态
-sudo systemctl status clawdbot
+sudo systemctl status openclaw
 ```
 
 **设置定时任务：**
@@ -570,10 +570,10 @@ cost: $600 一次性 + $20/month (电费 + API)
 
 ### 5.1 成本构成
 
-Clawdbot 本身是**开源免费**的，成本主要来自：
+OpenClaw 本身是**开源免费**的，成本主要来自：
 
 ```mermaid
-pie title Clawdbot 月度成本分布
+pie title OpenClaw 月度成本分布
     "AI API 使用费" : 60
     "VPS 托管费" : 30
     "其他集成服务" : 10
@@ -634,11 +634,11 @@ pie title Clawdbot 月度成本分布
 
 ### 6.1 安全风险分析
 
-Clawdbot 的强大源于它的"无限制权限"，但这也带来了重大安全风险：
+OpenClaw 的强大源于它的"无限制权限"，但这也带来了重大安全风险：
 
 ```mermaid
 graph TD
-    A[Clawdbot 权限] --> B[文件系统访问]
+    A[OpenClaw 权限] --> B[文件系统访问]
     A --> C[Shell 命令执行]
     A --> D[网络访问]
     A --> E[API 调用]
@@ -650,7 +650,7 @@ graph TD
 ```
 
 **GitHub 上的安全问题：**
-截至目前，Clawdbot 项目有 **500+ 安全相关 Issue**，主要关注：
+截至目前，OpenClaw 项目有 **500+ 安全相关 Issue**，主要关注：
 - 权限管理不足
 - 缺少沙箱隔离
 - 命令注入风险
@@ -674,7 +674,7 @@ graph TD
   ✅ 应该: 使用独立账号或测试数据
 
 规则四：审查自动化脚本
-  ❌ 不要: 盲目允许 Clawdbot 执行任何命令
+  ❌ 不要: 盲目允许 OpenClaw 执行任何命令
   ✅ 应该: 先在测试环境验证
 ```
 
@@ -687,17 +687,17 @@ graph TD
 FROM node:18-alpine
 
 # 创建非特权用户
-RUN addgroup -S clawdbot && adduser -S clawdbot -G clawdbot
+RUN addgroup -S openclaw && adduser -S openclaw -G openclaw
 
 # 限制文件系统访问
 VOLUME ["/data"]
 WORKDIR /app
 
 # 以非 root 用户运行
-USER clawdbot
+USER openclaw
 
-# 安装 Clawdbot
-COPY --chown=clawdbot:clawdbot . .
+# 安装 OpenClaw
+COPY --chown=openclaw:openclaw . .
 RUN npm install
 
 CMD ["node", "start.js"]
@@ -719,7 +719,7 @@ blocked_commands:
   - chmod 777
 
 allowed_directories:
-  - /home/clawdbot/projects
+  - /home/openclaw/projects
   - /tmp/clawd
 
 blocked_directories:
@@ -734,7 +734,7 @@ blocked_directories:
 # 使用系统密钥链
 # macOS
 security add-generic-password \
-  -a clawdbot \
+  -a openclaw \
   -s anthropic_api_key \
   -w "your-api-key"
 
@@ -760,7 +760,7 @@ sudo ufw enable
 ```mermaid
 sequenceDiagram
     participant U as 用户
-    participant C as Clawdbot<br/>(本地)
+    participant C as OpenClaw<br/>(本地)
     participant A as AI API<br/>(云端)
     participant S as 第三方服务
 
@@ -792,7 +792,7 @@ sequenceDiagram
 
 3. **审计日志**
    ```bash
-   # 监控 Clawdbot 活动
+   # 监控 OpenClaw 活动
    tail -f ~/.clawd/logs/audit.log
 
    # 定期检查异常
@@ -801,9 +801,9 @@ sequenceDiagram
 
 ## 7. 总结与展望
 
-### 7.1 Clawdbot 的价值所在
+### 7.1 OpenClaw 的价值所在
 
-Clawdbot 代表了 AI 助理的新范式：
+OpenClaw 代表了 AI 助理的新范式：
 
 **从"工具"到"同事"**
 - 不再是你访问的网站或应用
@@ -819,7 +819,7 @@ Clawdbot 代表了 AI 助理的新范式：
 
 ### 7.2 适合使用的人群
 
-**✅ 推荐尝试 Clawdbot 的人：**
+**✅ 推荐尝试 OpenClaw 的人：**
 
 | 人群 | 理由 |
 |:-----|:-----|
@@ -866,15 +866,15 @@ Clawdbot 代表了 AI 助理的新范式：
    - 一键云端部署
    - 预置场景模板
 
-**Clawdbot 的启示：**
+**OpenClaw 的启示：**
 
 应用层的创新速度可能超过模型本身的进化。正如 OpenAI CEO Fidji Simo 所说，存在严重的"**能力过剩（capability overhang）**"——模型已经很强大，但应用层还没有充分利用这些能力。
 
-Clawdbot 正是填补这一空白的先驱，展示了当我们给 AI 足够的权限和工具时，它可以成为真正的"数字员工"。
+OpenClaw 正是填补这一空白的先驱，展示了当我们给 AI 足够的权限和工具时，它可以成为真正的"数字员工"。
 
-### 7.4 开始你的 Clawdbot 之旅
+### 7.4 开始你的 OpenClaw 之旅
 
-如果你对 Clawdbot 感兴趣，建议按以下步骤开始：
+如果你对 OpenClaw 感兴趣，建议按以下步骤开始：
 
 ```mermaid
 graph LR
@@ -900,9 +900,9 @@ graph LR
 
 ## 参考资源
 
-- [Clawdbot 官方网站](https://clawd.bot/)
-- [Clawdbot GitHub 仓库](https://github.com/clawdbot/clawdbot)（20.8k+ stars）
-- [MacStories 深度评测](https://www.macstories.net/stories/clawdbot-showed-me-what-the-future-of-personal-ai-assistants-looks-like/)
+- [OpenClaw 官方网站](https://clawd.bot/)
+- [OpenClaw GitHub 仓库](https://github.com/openclaw/openclaw)（20.8k+ stars）
+- [MacStories 深度评测](https://www.macstories.net/stories/openclaw-showed-me-what-the-future-of-personal-ai-assistants-looks-like/)
 - [安装视频教程](https://www.youtube.com/watch?v=Qkqe-uRhQJE)
-- [UC Strategies 完整指南](https://ucstrategies.com/news/what-is-clawdbot-and-why-everyone-is-suddenly-obsessed-with-it/)
-- [社区 Discord 服务器](https://discord.gg/clawdbot)
+- [UC Strategies 完整指南](https://ucstrategies.com/news/what-is-openclaw-and-why-everyone-is-suddenly-obsessed-with-it/)
+- [社区 Discord 服务器](https://discord.gg/openclaw)
