@@ -1,0 +1,148 @@
+{
+  "mouseover": [{
+    "selector": "#waifu-tool-switch-model",
+    "text": ["要换一只猫吗？", "见见我的同伴吧～"]
+  }, {
+    "selector": "#waifu-tool-switch-texture",
+    "text": ["换个毛色看看？", "变装时间！"]
+  }, {
+    "selector": "#waifu-tool-photo",
+    "text": ["要给我拍照吗？", "一二三～茄子～"]
+  }, {
+    "selector": "#waifu-tool-info",
+    "text": ["想了解这个挂件吗？", "这里是我的来历。"]
+  }, {
+    "selector": "#waifu-tool-quit",
+    "text": ["要关掉我吗？", "喵…再见啦～", "记得回来找我玩！"]
+  }, {
+    "selector": ".VPNavBarTitle",
+    "text": ["欢迎来到烟霞不系舟的小窝～", "这是博客的首页。"]
+  }, {
+    "selector": ".VPNavBarMenuLink",
+    "text": ["去看看 <span>{text}</span> 吧！", "点它可以浏览 <span>{text}</span>。"]
+  }, {
+    "selector": ".blog-search",
+    "text": ["想找什么文章？搜搜看！", "在这里搜索你想要的内容～"]
+  }, {
+    "selector": ".blog-item",
+    "text": ["这篇文章看起来不错！", "点进去看看吧？", "喵，这篇值得一读！"]
+  }, {
+    "selector": ".blog-tag",
+    "text": ["<span>{text}</span> 标签，点它可以筛选文章哦。", "去看看 <span>{text}</span> 相关的文章吧！"]
+  }, {
+    "selector": ".card.recommend",
+    "text": ["这是推荐文章哦，值得一看！"]
+  }, {
+    "selector": ".card.tags",
+    "text": ["按标签找文章很方便呢。"]
+  }, {
+    "selector": ".VPSocialLink",
+    "text": ["去逛逛我的社交主页吧！", "这里可以找到我的其他踪迹～"]
+  }, {
+    "selector": ".blog-footer .footer-item",
+    "text": ["博客的页脚信息在这里。", "要看看版权和链接吗？"]
+  }, {
+    "selector": ".back-to-top",
+    "text": ["点它回到顶部啦！", "又回到最初的起点～"]
+  }, {
+    "selector": ".vp-doc h1, .vp-doc h2, .vp-doc h3",
+    "text": ["<span>{text}</span>，这一节讲得不错。", "看到 <span>{text}</span> 了，继续读下去吧！"]
+  }, {
+    "selector": "div[class*='language-'] .copy",
+    "text": ["代码可以直接点击复制哟。"]
+  }, {
+    "selector": ".vp-doc img",
+    "text": ["点击图片可以放大查看。"]
+  }, {
+    "selector": "a[href^='mailto']",
+    "text": ["发邮件给博主吧！", "点击就可以发送邮件啦～"]
+  }, {
+    "selector": "a[href^='http']",
+    "text": ["要去看看 <span>{text}</span> 么？", "到 <span>{text}</span> 逛逛吧。"]
+  }, {
+    "selector": ".pager-link.prev",
+    "text": ["看看上一篇文章吧。", "点它翻到上一篇。"]
+  }, {
+    "selector": ".pager-link.next",
+    "text": ["下一篇会是什么呢？", "点它翻到下一篇。"]
+  }],
+  "click": [{
+    "selector": ".blog-item",
+    "text": ["喵，这篇文章我也有读过！", "点进去看看吧。"]
+  }, {
+    "selector": ".blog-search",
+    "text": ["想找什么？我帮你～"]
+  }],
+  "seasons": [{
+    "date": "01/01",
+    "text": "<span>元旦</span>快乐！新的一年，新的开始～"
+  }, {
+    "date": "02/14",
+    "text": "今天是<span>情人节</span>，有对象了吗～"
+  }, {
+    "date": "03/08",
+    "text": "祝所有<span>女性朋友</span>节日快乐！"
+  }, {
+    "date": "04/01",
+    "text": "<span>愚人节</span>快乐，今天的话别全信哦～"
+  }, {
+    "date": "05/01",
+    "text": "<span>劳动节</span>快乐，好好休息！"
+  }, {
+    "date": "06/01",
+    "text": "<span>儿童节</span>快乐，保持童心！"
+  }, {
+    "date": "09/10",
+    "text": "<span>教师节</span>，向老师们致敬！"
+  }, {
+    "date": "10/01",
+    "text": "<span>国庆节</span>快乐，为祖国庆生！"
+  }, {
+    "date": "11/05-11/12",
+    "text": "<span>双十一</span>到了，理性剁手哦～"
+  }, {
+    "date": "12/20-12/31",
+    "text": "<span>圣诞节</span>快乐！新的一年快到了。"
+  }],
+  "time": [{
+    "hour": "6-7",
+    "text": "早上好！一日之计在于晨～"
+  }, {
+    "hour": "8-11",
+    "text": "上午好！工作顺利吗？注意休息哦。"
+  }, {
+    "hour": "12-13",
+    "text": "中午啦，记得吃午饭！"
+  }, {
+    "hour": "14-17",
+    "text": "午后容易犯困，起来活动一下吧。"
+  }, {
+    "hour": "18-19",
+    "text": "傍晚了，夕阳很美呢。"
+  }, {
+    "hour": "20-21",
+    "text": "晚上好，今天过得怎么样？"
+  }, {
+    "hour": "22-23",
+    "text": ["已经很晚了，早点休息吧。", "深夜了，注意保护眼睛哦。"]
+  }, {
+    "hour": "0-5",
+    "text": "这么晚还不睡？喵都要困了……"
+  }],
+  "message": {
+    "default": ["喵～欢迎来到我的小窝！", "今天也要元气满满哦！", "要不要看看新的技术文章？", "有 bug 解决不了？翻翻博客吧！"],
+    "console": "哈哈，打开控制台了？想偷看我的秘密？",
+    "copy": "复制了代码？记得注明出处哦～",
+    "visibilitychange": "你回来啦！",
+    "changeSuccess": "新毛色好看吗？",
+    "changeFail": "我只有这一身毛色呢。",
+    "photo": "拍好了吗？喵～",
+    "goodbye": "喵…愿你代码无 Bug。",
+    "hitokoto": "一言来自 <span>「$1」</span>，感谢 <span>$2</span> 的投稿。",
+    "welcome": "欢迎阅读 <span>「$1」</span>",
+    "referrer": "Hello！来自 <span>$1</span> 的朋友",
+    "hoverBody": ["喵？", "别摸我！", "痒痒的～", "喵喵喵？", "再摸我可要挠你了！"],
+    "tapBody": ["喵喵喵？", "干嘛戳我！", "再摸就咬你哦！", "小心我挠你！"]
+  },
+  "models": []
+}
