@@ -29,7 +29,17 @@ const blogTheme = getThemeConfig({
   // 主题色修改
   themeColor: 'el-blue',
   // 文章默认作者
-  author: '烟霞不系舟'
+  author: '烟霞不系舟',
+  // 看板娘（l2d-widget）：少前 Kar98k，PC 与移动端均显示，移动端单独小尺寸
+  oml2d: {
+    model: {
+      path: 'https://model.hacxy.cn/Kar98k-normal/model.json',
+    },
+    position: 'bottom-right',
+    size: { width: 220, height: 220 },
+    mobileDisplay: true,
+    mobileSize: { width: 130, height: 130 },
+  }
 })
 
 export { blogTheme }
