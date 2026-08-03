@@ -72,7 +72,10 @@ function formatFullDate(date: string): string {
     </div>
 
     <div v-for="[year, list] in groupedByYear" :key="year" class="timeline-year">
-      <h2 class="year-title">{{ year }}</h2>
+      <h2 class="year-title">
+        {{ year }}
+        <span class="year-count">{{ list.length }} 篇</span>
+      </h2>
       <ul class="timeline-list">
         <li v-for="article in list" :key="article.route" class="timeline-item">
           <span class="timeline-date">{{ formatDate(article.meta.date) }}</span>
@@ -108,47 +111,102 @@ function formatFullDate(date: string): string {
 }
 
 .year-title {
-  font-size: 1.5rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 1.35rem;
   font-weight: 700;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--vp-c-brand-1);
-  color: var(--vp-c-brand-1);
+  margin-bottom: 1.25rem;
+  color: var(--vp-c-text-1);
+}
+
+.year-count {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  padding: 0.05rem 0.55rem;
+  border-radius: 999px;
 }
 
 .timeline-list {
   list-style: none;
   padding: 0;
   margin: 0;
-  border-left: 1px solid var(--vp-c-divider);
-  margin-left: 0.5rem;
-  padding-left: 1.5rem;
+  margin-left: 0.35rem;
+  padding-left: 1.6rem;
+  border-left: 2px solid var(--vp-c-divider);
+  position: relative;
+}
+
+/* 渐变时间轴 */
+.timeline-list::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(
+    180deg,
+    var(--vp-c-brand-1) 0%,
+    var(--vp-c-divider) 30%,
+    var(--vp-c-divider) 100%
+  );
+  opacity: 0.6;
 }
 
 .timeline-item {
   position: relative;
-  margin-bottom: 0.75rem;
-  padding: 0.25rem 0;
+  margin-bottom: 0.9rem;
+  padding: 0.35rem 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.15rem 0;
 }
 
-/* 时间轴圆点 */
+/* 标题占据中间弹性空间，标签推到右侧，整行铺满 */
+.timeline-link {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.timeline-tags {
+  margin-left: 1rem;
+  margin-right: 0.25rem;
+  display: inline-flex;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+/* 时间轴圆点 - 品牌色 + 发光 */
 .timeline-item::before {
   content: '';
   position: absolute;
-  left: -1.85rem;
-  top: 0.6rem;
+  left: -2.05rem;
+  top: 0.72rem;
   width: 10px;
   height: 10px;
   border-radius: 50%;
   background: var(--vp-c-brand-1);
-  border: 2px solid var(--vp-c-bg);
+  box-shadow: 0 0 0 3px var(--vp-c-bg), 0 0 8px var(--vp-c-brand-soft);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.timeline-item:hover::before {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 3px var(--vp-c-bg), 0 0 12px var(--vp-c-brand-1);
 }
 
 .timeline-date {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--vp-c-text-2);
-  margin-right: 0.75rem;
+  margin-right: 0.9rem;
   font-variant-numeric: tabular-nums;
+  min-width: 3rem;
+  letter-spacing: 0.02em;
 }
 
 .timeline-link {
@@ -156,31 +214,36 @@ function formatFullDate(date: string): string {
   font-weight: 500;
   color: var(--vp-c-text-1);
   text-decoration: none;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, transform 0.2s ease;
+  line-height: 1.6;
 }
 
 .timeline-link:hover {
   color: var(--vp-c-brand-1);
 }
 
-.timeline-tags {
-  margin-left: 0.5rem;
-}
+
 
 .timeline-tag {
   display: inline-block;
   font-size: 0.7rem;
-  padding: 0.1rem 0.5rem;
-  margin-right: 0.35rem;
+  padding: 0.08rem 0.5rem;
   border-radius: 0.25rem;
   background: var(--vp-c-bg-soft);
   color: var(--vp-c-text-2);
   border: 1px solid var(--vp-c-divider);
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.timeline-tag:hover {
+  color: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
 }
 
 .timeline-total {
   margin-top: 2rem;
   color: var(--vp-c-text-2);
   font-size: 0.9rem;
+  text-align: center;
 }
 </style>

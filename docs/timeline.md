@@ -1,9 +1,10 @@
 ---
-layout: page
 title: 时间线
 description: 博客全部文章按时间轴归档
 sidebar: false
 publish: false
+lang: zh-CN
+hidden: true
 ---
 
 # 📅 时间线
