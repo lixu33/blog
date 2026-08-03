@@ -1,6 +1,6 @@
 ---
 isTimeLine: true
-title: Hermes Agent 开源 AI 智能体部署指南
+title: Hermes Agent 介绍
 description: Hermes Agent 是 Nous Research 开源的自主 AI 智能体，以"自我进化"为核心卖点——从经验中自动创建技能、跨会话持久记忆、支持 200+ 模型与多平台消息网关。本文详细介绍其核心特性、工作原理以及完整的部署流程。
 date: 2026-08-01
 tags:

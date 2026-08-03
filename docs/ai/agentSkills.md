@@ -4,13 +4,11 @@ title: AI Agent Skills 入门
 description: 系统讲解 AI Agent Skills 的核心概念、工作原理和实战入门，帮助开发者理解如何让 AI Agent 具备可扩展的专业能力。
 date: 2026-01-24
 tags:
-- AI Agent
+- AI
 - LLM
 - Skills
 - MCP
-- 人工智能
 categories:
-- 人工智能
 - AI
 head:
 - - meta
