@@ -80,7 +80,7 @@ export default defineConfig({
           { text: 'Lobe-Chat', link: 'https://lobe.lixu.dev' },
           { text: 'IT工具', link: 'https://tools.lixu.dev' },
           { text: 'Alist', link: 'https://alist.lixu.dev' },
-          { text: 'AI唱歌评分', link: 'https://singing-coach.lixu.dev' }
+          { text: 'AI睡前故事', link: 'https://ai-story.lixu.dev' }
         ]
       }
     ],
