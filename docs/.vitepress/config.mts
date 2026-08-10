@@ -17,6 +17,17 @@ export default defineConfig({
   extends: blogTheme,
   sitemap: {
     hostname: 'https://blog.lixu.dev',
+    // 只收录纯文章页：排除首页、分类目录页（/ai/ 等 index）、英文站、时间线归档页
+    transformItems: (items) =>
+      items.filter((item) => {
+        let url = item.url
+        // VitePress 生成 item.url：首页为空串、目录页为 "ai/"、文章页为 "ai/xxx"，统一规范化
+        if (url.startsWith('http')) url = new URL(url).pathname
+        const path = url.replace(/^\/+|\/+$/g, '')
+        if (path === '' || path === 'en' || path === 'timeline') return false
+        if (url.endsWith('/')) return false // 目录/归档页（index.md → "ai/"）
+        return true
+      }),
   },
   cleanUrls: true,
   base,
