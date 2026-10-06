@@ -271,4 +271,31 @@ function formatFullDate(date: string): string {
   font-size: 0.9rem;
   text-align: center;
 }
+
+/* 移动端：宽度放不下「日期 + 标题 + 标签」一行，flex 换行后三者起点对不上
+   （日期在 .timeline-list 内边距处、标签换行后又从行首开始）。
+   改为纵向堆叠并左对齐，标签允许换行。 */
+@media (max-width: 640px) {
+  .timeline-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    margin-bottom: 1.1rem;
+  }
+  .timeline-date {
+    min-width: 0;
+    margin-right: 0;
+  }
+  .timeline-link {
+    min-width: 0;
+    width: 100%;
+  }
+  .timeline-tags {
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0.15rem;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
 </style>

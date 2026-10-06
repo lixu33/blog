@@ -88,7 +88,8 @@ export const themeEN = defineLocaleConfig({
         duration: 4000,
         interval: 12000,
         // 库默认 whiteSpace: nowrap，英文长句会溢出气泡（详见 blog-theme.ts 同名注释）
-        style: { whiteSpace: 'normal', width: 'max-content', maxWidth: '220px' }
+        // maxWidth 必须 ≤ 看板娘宽度（移动端 130px），否则气泡会向左越界
+        style: { whiteSpace: 'normal', width: 'max-content', maxWidth: '130px' }
       }
     },
     position: 'bottom-left',

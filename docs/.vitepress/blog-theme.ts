@@ -102,9 +102,10 @@ const blogTheme = getThemeConfig({
         duration: 4000,
         interval: 12000,
         // 库里气泡写死 whiteSpace: nowrap + maxWidth: 200px，长文案（尤其英文）会溢出气泡。
-        // width: max-content 让气泡按内容撑开（不加的话会被容器挤到 ~110px 折成多行），
-        // maxWidth 220 = 看板娘宽度，保证居中后仍不越出屏幕左边界。
-        style: { whiteSpace: 'normal', width: 'max-content', maxWidth: '220px' }
+        // width: max-content 让气泡按内容撑开（不加的话会被容器挤到 ~110px 折成多行）；
+        // maxWidth 必须 ≤ 看板娘宽度——气泡是「以看板娘中心为中心」定位的，宽度超过看板娘宽度
+        // 就会向左越界（移动端看板娘只有 130px）。
+        style: { whiteSpace: 'normal', width: 'max-content', maxWidth: '130px' }
       }
     },
     position: 'bottom-left',
