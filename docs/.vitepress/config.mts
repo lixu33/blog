@@ -57,6 +57,15 @@ export default defineConfig({
     ['meta', { name: 'twitter:title', content: siteTitle }],
     ['meta', { name: 'twitter:description', content: siteDesc }],
     ['meta', { name: 'twitter:image', content: `${siteUrl}/logo.png` }],
+    // Cloudflare Web Analytics：免费、无 cookie、数据保留不限（手动安装模式，站点未走 CF 代理）
+    [
+      'script',
+      {
+        defer: '',
+        src: 'https://static.cloudflareinsights.com/beacon.min.js',
+        'data-cf-beacon': JSON.stringify({ token: 'c47e566c70c54c6bbb58f0a7977542e1' })
+      }
+    ],
     [
       'script',
       { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-231Y53GHPL' }

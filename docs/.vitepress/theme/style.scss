@@ -1,14 +1,15 @@
 .VPHome {
+  // 定义遮罩样式
+  // 注意：声明必须写在嵌套规则之前，否则 Sass 1.77+ 报 mixed-decls 弃用警告
+  background: radial-gradient(
+    ellipse,
+    rgba(var(--bg-gradient-home), 1) 0%,
+    rgba(var(--bg-gradient-home), 0) 150%
+  );
   // 自定义首页背景图
   &::before {
     // 图片来源：https://zhuanlan.zhihu.com/p/54060187
     background-image: url(./assets/bg.webp);
     background-size: cover;
   }
-  // 定义遮罩样式
-  background: radial-gradient(
-    ellipse,
-    rgba(var(--bg-gradient-home), 1) 0%,
-    rgba(var(--bg-gradient-home), 0) 150%
-  );
 }
