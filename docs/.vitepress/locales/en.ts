@@ -30,7 +30,7 @@ export const themeEN = defineLocaleConfig({
     sort: 'date'
   },
   buttonAfterArticle: {
-    openTitle: 'By Me A ☕️',
+    openTitle: 'Buy Me A ☕️',
     closeTitle: 'Bye Bye 👋🏻',
     content: '<img src="https://img.lixu.dev/rest/2024/05/t7g1meK.webp">',
     icon: 'wechatPay',
@@ -66,6 +66,44 @@ export const themeEN = defineLocaleConfig({
       publishDate: 'Published on',
       lastUpdated: 'Last updated on',
       tag: 'Tags',
+    }
+  },
+  // 看板娘英文文案：主题按 locale 用这里的 oml2d 浅覆盖根配置（浅合并，必须写全）
+  oml2d: {
+    model: {
+      path: '/live2d/whale-girl-v1/c_0120.model3.json',
+      scale: 1,
+      offset: [0, 0],
+      tips: {
+        welcomeMessage: [
+          'Good evening! How was your day?',
+          'Welcome back~',
+          'Have a lovely day!'
+        ],
+        messages: [
+          'Remember to drink water~',
+          'Tired? Click me to take a break',
+          'Hit "Rest" and I will step aside'
+        ],
+        duration: 4000,
+        interval: 12000,
+        // 库默认 whiteSpace: nowrap，英文长句会溢出气泡（详见 blog-theme.ts 同名注释）
+        style: { whiteSpace: 'normal', width: 'max-content', maxWidth: '220px' }
+      }
+    },
+    position: 'bottom-left',
+    size: { width: 220, height: 220 },
+    mobileDisplay: true,
+    mobileSize: { width: 130, height: 130 },
+    primaryColor: 'rgba(37, 99, 235, 0.92)',
+    menus: {
+      items: [
+        {
+          icon: 'mdi:bed',
+          label: 'Rest',
+          onClick: (widget: { sleep: () => void }) => widget.sleep()
+        }
+      ]
     }
   },
 })

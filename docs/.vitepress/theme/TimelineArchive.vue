@@ -6,26 +6,51 @@ import type { Theme } from '@sugarat/theme'
 // 使用 VitePress 的 useData 获取主题配置
 const { theme, localeIndex, site } = useData<Theme.Config>()
 
-// 获取全部文章数据 - 支持多语言
-const allArticles = computed(() => {
-  const localeKeys = Object.keys(site.value.locales || {})
+interface Article {
+  route: string
+  meta: { title: string; date?: string; tags?: string[] }
+}
+
+// 界面文案随语言切换
+const isEN = computed(() => String(localeIndex.value).startsWith('en'))
+const L = computed(() =>
+  isEN.value
+    ? {
+        empty: 'No posts yet',
+        count: (n: number) => `${n} posts`,
+        total: (n: number) => `${n} posts in total`
+      }
+    : {
+        empty: '暂无文章',
+        count: (n: number) => `${n} 篇`,
+        total: (n: number) => `共 ${n} 篇文章`
+      }
+)
+const dateLocale = computed(() => (isEN.value ? 'en-US' : 'zh-CN'))
+
+// 获取全部文章数据 - 按语言取值：中文站列中文文章，英文站没有英文文章即为空
+const allArticles = computed<Article[]>(() => {
+  const blog = theme.value?.blog
+  const localeKeys = Object.keys(site.value.locales || [])
 
   // 如果没有多语言配置，直接返回 pagesData
   if (localeKeys.length === 0) {
-    return theme.value?.blog?.pagesData || []
+    return (blog?.pagesData as Article[]) || []
   }
 
   // 有多语言配置时，返回当前语言的 pagesData
-  return theme.value?.blog?.locales?.[localeIndex.value]?.pagesData || []
+  return (blog?.locales?.[localeIndex.value]?.pagesData as Article[]) || []
 })
 
-// 全部文章（排除各目录 index 页），按日期降序
+// 全部文章（排除各目录 index 页和时间线自身），按日期降序
 const articles = computed(() => {
   return allArticles.value
     .filter(article => {
       const route = article.route
       // 排除 index 页（/xxx/index 或根 index）
-      return !route.endsWith('/index') && route !== '/'
+      if (route.endsWith('/index') || route === '/') return false
+      // 排除时间线页自身（/timeline、/en/timeline），否则会把自己也列成一篇
+      return !/(^|\/)timeline$/.test(route)
     })
     .sort((a, b) => {
       const dateA = a.meta.date ? new Date(a.meta.date).getTime() : 0
@@ -49,7 +74,7 @@ const groupedByYear = computed(() => {
 
 function formatDate(date: string): string {
   if (!date) return ''
-  return new Date(date).toLocaleDateString('zh-CN', {
+  return new Date(date).toLocaleDateString(dateLocale.value, {
     month: '2-digit',
     day: '2-digit'
   })
@@ -57,7 +82,7 @@ function formatDate(date: string): string {
 
 function formatFullDate(date: string): string {
   if (!date) return ''
-  return new Date(date).toLocaleDateString('zh-CN', {
+  return new Date(date).toLocaleDateString(dateLocale.value, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -68,13 +93,13 @@ function formatFullDate(date: string): string {
 <template>
   <div class="timeline-archive">
     <div v-if="articles.length === 0" class="empty">
-      暂无文章
+      {{ L.empty }}
     </div>
 
     <div v-for="[year, list] in groupedByYear" :key="year" class="timeline-year">
       <h2 class="year-title">
         {{ year }}
-        <span class="year-count">{{ list.length }} 篇</span>
+        <span class="year-count">{{ L.count(list.length) }}</span>
       </h2>
       <ul class="timeline-list">
         <li v-for="article in list" :key="article.route" class="timeline-item">
@@ -91,7 +116,7 @@ function formatFullDate(date: string): string {
       </ul>
     </div>
 
-    <p class="timeline-total">共 {{ articles.length }} 篇文章</p>
+    <p v-if="articles.length" class="timeline-total">{{ L.total(articles.length) }}</p>
   </div>
 </template>
 

@@ -1,4 +1,6 @@
 ---
+buttonAfterArticle: false
+comment: false
 title: 信息安全
 description: 加密算法原理与实践，涵盖对称加密、非对称加密等密码学基础与应用安全。
 lang: zh-CN

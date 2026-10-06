@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitepress'
+import { defineConfig, type DefaultTheme } from 'vitepress'
 import { pagefindPlugin } from 'vitepress-plugin-pagefind'
 
 // 导入主题的配置
@@ -12,6 +12,40 @@ const siteTitle = '总要写点什么'
 const siteDesc = '烟霞不系舟的个人博客 — AI、前后端、DevOps、安全领域的实战经验与技术笔记'
 const authorName = '烟霞不系舟'
 
+// 英文站文案：VitePress 的 locales.<key> 会覆盖顶层同名配置（title/description/themeConfig）。
+// 标题与英文首页 frontmatter 里的 blog.name 保持一致。
+const siteTitleEN = 'Write Something Today'
+const siteDescEN = 'Personal blog — practical notes on AI, web & backend development, DevOps and security'
+
+// 顶部导航，中英各一份。英文站目前只有首页，所以不放中文专属的时间线页。
+const navZH: DefaultTheme.NavItem[] = [
+  { text: '首页', link: '/' },
+  { text: '时间线', link: '/timeline' },
+  {
+    text: '个人链接',
+    items: [
+      { text: 'Lobe-Chat', link: 'https://lobe.lixu.dev' },
+      { text: 'IT工具', link: 'https://tools.lixu.dev' },
+      { text: 'Alist', link: 'https://alist.lixu.dev' },
+      { text: 'AI睡前故事', link: 'https://ai-story.lixu.dev' }
+    ]
+  }
+]
+
+const navEN: DefaultTheme.NavItem[] = [
+  { text: 'Home', link: '/en/' },
+  { text: 'Timeline', link: '/en/timeline' },
+  {
+    text: 'Links',
+    items: [
+      { text: 'Lobe-Chat', link: 'https://lobe.lixu.dev' },
+      { text: 'IT Tools', link: 'https://tools.lixu.dev' },
+      { text: 'Alist', link: 'https://alist.lixu.dev' },
+      { text: 'AI Bedtime Story', link: 'https://ai-story.lixu.dev' }
+    ]
+  }
+]
+
 export default defineConfig({
   // 继承博客主题(@sugarat/theme)
   extends: blogTheme,
@@ -24,7 +58,7 @@ export default defineConfig({
         // VitePress 生成 item.url：首页为空串、目录页为 "ai/"、文章页为 "ai/xxx"，统一规范化
         if (url.startsWith('http')) url = new URL(url).pathname
         const path = url.replace(/^\/+|\/+$/g, '')
-        if (path === '' || path === 'en' || path === 'timeline') return false
+        if (path === '' || path === 'en' || path === 'timeline' || path === 'en/timeline') return false
         if (url.endsWith('/')) return false // 目录/归档页（index.md → "ai/"）
         return true
       }),
@@ -43,7 +77,17 @@ export default defineConfig({
     en: {
       label: 'English',
       lang: 'en',
-      link: '/en/'
+      link: '/en/',
+      // 英文站专属：站点名、描述、顶部导航与默认文案
+      title: siteTitleEN,
+      description: siteDescEN,
+      themeConfig: {
+        nav: navEN,
+        outline: { level: [2, 3], label: 'On this page' },
+        returnToTopLabel: 'Return to top',
+        sidebarMenuLabel: 'Related articles',
+        lastUpdatedText: 'Last updated'
+      }
     }
   },
   // 详见：https://vitepress.dev/zh/reference/site-config#head
@@ -91,19 +135,7 @@ export default defineConfig({
     lastUpdatedText: '上次更新于',
     // 设置logo
     logo: '/logo.png',
-    nav: [
-      { text: '首页', link: '/' },
-      { text: '时间线', link: '/timeline' },
-      {
-        text: '个人链接',
-        items: [
-          { text: 'Lobe-Chat', link: 'https://lobe.lixu.dev' },
-          { text: 'IT工具', link: 'https://tools.lixu.dev' },
-          { text: 'Alist', link: 'https://alist.lixu.dev' },
-          { text: 'AI睡前故事', link: 'https://ai-story.lixu.dev' }
-        ]
-      }
-    ],
+    nav: navZH,
     socialLinks: [
       { icon: 'github', link: 'https://github.com/lixu33/blog' }
     ]
@@ -117,6 +149,10 @@ export default defineConfig({
     const head = []
     const isArticle = !!pageData.frontmatter?.date
     const rawPath = pageData.relativePath || ''
+    // /en/ 下的页面用英文站点名与描述，避免英文页的 og / 结构化数据里出现中文站名
+    const isEN = rawPath.startsWith('en/')
+    const pageSiteTitle = isEN ? siteTitleEN : siteTitle
+    const pageSiteDesc = isEN ? siteDescEN : siteDesc
     // 转成线上规范路径：xxx.md → /xxx；index.md → /
     const cleanPath = rawPath
       .replace(/\.md$/, '')
@@ -128,10 +164,10 @@ export default defineConfig({
 
     // 2. 动态 og / twitter 标签（文章页用文章标题与描述，而非站点名）
     head.push(['meta', { property: 'og:title', content: title }])
-    head.push(['meta', { property: 'og:description', content: description || siteDesc }])
+    head.push(['meta', { property: 'og:description', content: description || pageSiteDesc }])
     head.push(['meta', { property: 'og:url', content: url }])
     head.push(['meta', { name: 'twitter:title', content: title }])
-    head.push(['meta', { name: 'twitter:description', content: description || siteDesc }])
+    head.push(['meta', { name: 'twitter:description', content: description || pageSiteDesc }])
 
     // 3. JSON-LD 结构化数据（文章页 → BlogPosting；首页 → WebSite）
     if (isArticle) {
@@ -140,7 +176,7 @@ export default defineConfig({
         '@context': 'https://schema.org',
         '@type': 'BlogPosting',
         headline: title,
-        description: description || siteDesc,
+        description: description || pageSiteDesc,
         datePublished: fm.date || '',
         dateModified: fm.date || '',
         author: { '@type': 'Person', name: authorName },
@@ -154,8 +190,8 @@ export default defineConfig({
       const jsonLd = {
         '@context': 'https://schema.org',
         '@type': 'WebSite',
-        name: siteTitle,
-        description: siteDesc,
+        name: pageSiteTitle,
+        description: pageSiteDesc,
         url: siteUrl
       }
       head.push(['script', { type: 'application/ld+json' }, JSON.stringify(jsonLd)])

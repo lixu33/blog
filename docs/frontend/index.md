@@ -1,4 +1,6 @@
 ---
+buttonAfterArticle: false
+comment: false
 title: 前端技术
 description: 现代前端开发技术与框架，包括 React、Next.js、TypeScript 等前端技术栈的实践与原理解析。
 lang: zh-CN
