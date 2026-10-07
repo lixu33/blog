@@ -76,9 +76,12 @@ export const themeEN = defineLocaleConfig({
       offset: [0, 0],
       tips: {
         welcomeMessage: [
-          'Good evening! How was your day?',
-          'Welcome back~',
-          'Have a lovely day!'
+          'Deep-sea signal connected~',
+          "Blowing bubbles to say I'm here~",
+          'Popping up for air — and to see you~',
+          'Swim beautifully today~',
+          'The current brought you here~',
+          "Don't rush off — rest a while~"
         ],
         messages: [
           'Remember to drink water~',

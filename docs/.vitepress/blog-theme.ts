@@ -79,7 +79,9 @@ const blogTheme = getThemeConfig({
   // 主题 0.5.29 用的是 l2d-widget（不再是 oh-my-live2d），API 有三处坑：
   //   1) menus.items 必须是 MenuItem[]（{ label, onClick }）；传函数会在建菜单时 for...of 崩溃，
   //      整个看板娘都不渲染。提供 items 即完全替换默认项（默认是 切换模型/休眠/About）。
-  //   2) 问候语在 model.tips 内，字段名是 welcomeMessage / messages（随机取一条 / 循环播放）
+  //   2) 问候语在 model.tips 内，字段名是 welcomeMessage / messages（随机取一条 / 循环播放）。
+  //      注意：l2d-widget 没有任何时段判断（全文无 getHours / daybreak / night），一句话只在页面
+  //      加载时随机抽一次，所以这里必须写任何钟点都通用的问候语，不能写「早上好 / 晚上好」。
   //   3) 按钮文字来自 MenuItem.label；配了 icon 就显示图标（运行时从 api.iconify.design 拉取），
   //      label 同时作为 title 提示。图标拉取失败会回退成文字。
   // 英文文案见 locales/en.ts 的 oml2d（主题按 locale 浅合并 blog 配置，须写全）
@@ -90,9 +92,12 @@ const blogTheme = getThemeConfig({
       offset: [0, 0],
       tips: {
         welcomeMessage: [
-          '晚上好，今天过得怎么样？',
-          '欢迎回来～',
-          '今天也要开心哦！'
+          '深海信号已连接～',
+          '冒个泡泡，表示我在线',
+          '上来换口气，顺便看看你',
+          '今天也要游得漂亮哦',
+          '洋流把你带到这儿啦',
+          '别急着走，先歇一会儿'
         ],
         messages: [
           '记得多喝水～',
