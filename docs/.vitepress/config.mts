@@ -101,18 +101,16 @@ export default defineConfig({
     ['meta', { name: 'twitter:title', content: siteTitle }],
     ['meta', { name: 'twitter:description', content: siteDesc }],
     ['meta', { name: 'twitter:image', content: `${siteUrl}/logo.png` }],
-    // Cloudflare Web Analytics：免费、无 cookie、数据保留不限（手动安装模式，站点未走 CF 代理）
+    // 统计：Google Analytics 4（度量 ID G-231Y53GHPL），走**同域第一方反代**以在大陆可用。
+    // 背景：www.googletagmanager.com / www.google-analytics.com 在大陆被墙；Vercel 的边缘节点在墙外，
+    // 所以由 vercel.json 的 rewrites 把 /ga/js 与 /ga/g/collect 反代到 Google —— 页面只请求 blog.lixu.dev，
+    // 全程不碰 Google 域名（顺带也绕开广告拦截器对 Google 域名的拦截）。
+    // transport_url 决定上报端点（transport_url + /g/collect）；first_party_collection 让后续事件也走该端点。
+    // 注意：blog.lixu.dev 用的是国内优选 CNAME（vercel-cname.xingpingcn.top），所以这条路径国内可达。
+    // 变更历史：2026-10-08 曾短暂移除 GA；同日改为反代方案后重新启用，并去掉 Cloudflare Web Analytics beacon。
     [
       'script',
-      {
-        defer: '',
-        src: 'https://static.cloudflareinsights.com/beacon.min.js',
-        'data-cf-beacon': JSON.stringify({ token: 'c47e566c70c54c6bbb58f0a7977542e1' })
-      }
-    ],
-    [
-      'script',
-      { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-231Y53GHPL' }
+      { async: '', src: `${base}ga/js?id=G-231Y53GHPL` }
     ],
     [
       'script',
@@ -120,7 +118,10 @@ export default defineConfig({
       `window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-      gtag('config', 'G-231Y53GHPL');`
+      gtag('config', 'G-231Y53GHPL', {
+        transport_url: 'https://blog.lixu.dev/ga',
+        first_party_collection: true
+      });`
     ]
   ],
   themeConfig: {
