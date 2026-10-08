@@ -51,15 +51,24 @@ export default defineConfig({
   extends: blogTheme,
   sitemap: {
     hostname: 'https://blog.lixu.dev',
-    // 只收录纯文章页：排除首页、分类目录页（/ai/ 等 index）、英文站、时间线归档页
+    // sitemap 收录范围：首页 + 中文时间线 + 纯文章页（共 19 条）。
+    // 首页**必须**收录——它既是权威入口，也是 Google 发现全站内链的主路径；此前被这条过滤
+    // 误排除，直接导致首页在 GSC 里长期是「Google 无法识别此网址」。
+    // 时间线收录是因为它链着全部文章，是站内最好的爬取枢纽。
+    // 排除：分类目录页（/ai/ 等薄列表页）与英文时间线（空页）。
     transformItems: (items) =>
       items.filter((item) => {
         let url = item.url
         // VitePress 生成 item.url：首页为空串、目录页为 "ai/"、文章页为 "ai/xxx"，统一规范化
         if (url.startsWith('http')) url = new URL(url).pathname
         const path = url.replace(/^\/+|\/+$/g, '')
-        if (path === '' || path === 'en' || path === 'timeline' || path === 'en/timeline') return false
-        if (url.endsWith('/')) return false // 目录/归档页（index.md → "ai/"）
+        // 首页（'' 与 'en'）：权威入口，也是 Google 发现全站内链的主路径
+        if (path === '' || path === 'en') return true
+        // 中文时间线：链着全部 17 篇文章，是最好的爬取枢纽，值得收录
+        if (path === 'timeline') return true
+        // 英文时间线目前是空页（英文站只有首页），收进去只会拉低站点整体质量
+        if (path === 'en/timeline') return false
+        if (url.endsWith('/')) return false // 分类目录页（index.md → "ai/"）：薄列表页，Google 通常不收
         return true
       }),
   },
