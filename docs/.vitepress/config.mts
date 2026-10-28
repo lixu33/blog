@@ -117,20 +117,32 @@ export default defineConfig({
     // transport_url 决定上报端点（transport_url + /g/collect）；first_party_collection 让后续事件也走该端点。
     // 注意：blog.lixu.dev 用的是国内优选 CNAME（vercel-cname.xingpingcn.top），所以这条路径国内可达。
     // 变更历史：2026-10-08 曾短暂移除 GA；同日改为反代方案后重新启用，并去掉 Cloudflare Web Analytics beacon。
-    [
-      'script',
-      { async: '', src: `${base}ga/js?id=G-231Y53GHPL` }
-    ],
+    // 加载时机：极早跳出的人少记一次，但换来 load 前不被这条 177KB 抢带宽（4G 下 load 约 -1s）。
     [
       'script',
       {},
-      `window.dataLayer = window.dataLayer || [];
+      `(function () {
+      window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
+      window.gtag = gtag;
       gtag('js', new Date());
       gtag('config', 'G-231Y53GHPL', {
         transport_url: 'https://blog.lixu.dev/ga',
         first_party_collection: true
-      });`
+      });
+      function inject() {
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = '${base}ga/js?id=G-231Y53GHPL';
+        document.head.appendChild(s);
+      }
+      function idle() {
+        if ('requestIdleCallback' in window) requestIdleCallback(inject, { timeout: 3000 });
+        else setTimeout(inject, 1200);
+      }
+      if (document.readyState === 'complete') idle();
+      else window.addEventListener('load', function () { setTimeout(idle, 500); }, { once: true });
+    })();`
     ]
   ],
   themeConfig: {
