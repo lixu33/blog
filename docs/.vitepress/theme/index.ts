@@ -75,8 +75,14 @@ function syncOml2dText(themeConfig: any, locale: string) {
   const cfg = readOml2dConfig(themeConfig, locale)
   if (!cfg || !createdOptions) return
 
-  // 1) tips：数组引用不变，只换内容
+  const root = document.querySelector('body > div[style*="z-index: 9999"]')
+  // 数组是原地替换的，替换后就分不清哪句是哪句了：先把旧文案留一份，
+  // 用来把"此刻正在显示的那句气泡"翻译成新语言。
   const oldTips = createdOptions.model?.tips
+  const prevWelcome: string[] = Array.isArray(oldTips?.welcomeMessage) ? [...oldTips.welcomeMessage] : []
+  const prevMessages: string[] = Array.isArray(oldTips?.messages) ? [...oldTips.messages] : []
+
+  // 1) tips：数组引用不变，只换内容
   const newTips = cfg.model?.tips
   if (oldTips && newTips) {
     replaceArray(oldTips.welcomeMessage, newTips.welcomeMessage)
@@ -85,8 +91,26 @@ function syncOml2dText(themeConfig: any, locale: string) {
     if (typeof newTips.interval === 'number') oldTips.interval = newTips.interval
   }
 
-  // 2) 菜单：l2d-widget 写死 z-index: 9999 作为容器，按钮顺序与 menus.items 一致
-  const root = document.querySelector('body > div[style*="z-index: 9999"]')
+  // 2) 正在显示的气泡：库把文案一次性写进气泡里的 <span>，只换数组不会重绘，
+  //    所以这里按旧文案反查下标、就地换成新语言的同一句（等它自然消失就太迟了）。
+  if (root && Array.isArray(newTips?.messages)) {
+    const newWelcome: string[] = Array.isArray(newTips.welcomeMessage) ? newTips.welcomeMessage : []
+    const newMessages: string[] = newTips.messages
+    const pick = (list: string[], i: number) => list[i] ?? list[0] ?? ''
+    root.querySelectorAll('span').forEach((span) => {
+      const text = (span.textContent || '').trim()
+      if (!text) return
+      const inWelcome = prevWelcome.indexOf(text)
+      if (inWelcome >= 0) {
+        span.textContent = pick(newWelcome, inWelcome)
+        return
+      }
+      const inMessages = prevMessages.indexOf(text)
+      if (inMessages >= 0) span.textContent = pick(newMessages, inMessages)
+    })
+  }
+
+  // 3) 菜单：l2d-widget 写死 z-index: 9999 作为容器，按钮顺序与 menus.items 一致
   if (!root) return
   const buttons = root.querySelectorAll('button[title]')
   const items: AnyRecord[] = cfg.menus?.items ?? []
