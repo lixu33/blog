@@ -14,10 +14,6 @@ blog:
     }
 ---
 
-## 🚧 English Content Coming Soon
+Notes on AI, web & backend development, DevOps and security — practical write-ups from things I actually run and break.
 
-Welcome to my blog! English translations of articles are in progress.
-
-For now, please visit the [Chinese version](/) to read all available content.
-
-Stay tuned for updates! 📝
+Articles are translated from Chinese and revised by hand; if anything reads oddly, the [Chinese original](/) is the source of truth.

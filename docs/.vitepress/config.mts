@@ -36,6 +36,16 @@ const navEN: DefaultTheme.NavItem[] = [
   { text: 'Home', link: '/en/' },
   { text: 'Timeline', link: '/en/timeline' },
   {
+    text: 'Categories',
+    items: [
+      { text: 'DevOps', link: '/en/devops/' },
+      { text: 'Backend', link: '/en/backend/' },
+      { text: 'Frontend', link: '/en/frontend/' },
+      { text: 'AI', link: '/en/ai/' },
+      { text: 'Security', link: '/en/security/' }
+    ]
+  },
+  {
     text: 'Links',
     items: [
       { text: 'Lobe-Chat', link: 'https://lobe.lixu.dev' },
@@ -66,8 +76,8 @@ export default defineConfig({
         if (path === '' || path === 'en') return true
         // 中文时间线：链着全部 17 篇文章，是最好的爬取枢纽，值得收录
         if (path === 'timeline') return true
-        // 英文时间线目前是空页（英文站只有首页），收进去只会拉低站点整体质量
-        if (path === 'en/timeline') return false
+        // 英文时间线：英文文章已由 i18n 流水线补齐，同样是英文站的爬取枢纽
+        if (path === 'en/timeline') return true
         if (url.endsWith('/')) return false // 分类目录页（index.md → "ai/"）：薄列表页，Google 通常不收
         return true
       }),

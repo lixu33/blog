@@ -11,6 +11,15 @@ export const themeEN = defineLocaleConfig({
   homeTags: {
     title: '🏷️ Tags'
   },
+  // 列表/推荐卡片的相对时间（默认是中文“刚刚/分钟前”，这里换成英文）
+  formatShowDate: {
+    justNow: 'just now',
+    secondsAgo: 's ago',
+    minutesAgo: ' min ago',
+    hoursAgo: 'h ago',
+    daysAgo: 'd ago',
+    weeksAgo: 'w ago'
+  },
   comment: {
     type: 'giscus',
     options: {
