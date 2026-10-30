@@ -1,8 +1,9 @@
 ---
 isTimeLine: true
-title: JNA Java 原生访问指南
-description: 本文将深入探讨JNA（Java Native Access），涵盖其原理、使用方法、性能优化以及实际应用等方面，帮助你全面掌握这一强大的Java技术。
+title: JNA：Java 调用原生库的实践
+description: JNA 的调用模型、类型与结构体映射、内存与线程注意事项，以及与 JNI、JDK 22 起正式化的 FFM API 的取舍。包含 JNA 5.x 后的 API 变更（loadLibrary 已废弃）和常见踩坑。
 date: 2024-06-03
+updated: 2026-10-31
 author: 烟霞不系舟
 lang: zh-CN
 categories:
@@ -15,134 +16,184 @@ tags:
 head:
 - - meta
   - name: keywords
-    content: JNA, Java Native Access, JNI, Java本地方法调用, JNA教程
+    content: JNA, Java Native Access, JNI, FFM API, Java 调用 dll, Structure 映射
 ---
 
-# 深入理解JNA：Java原生访问的利器
+## 什么时候该用 JNA
 
-## 引言
-在Java的世界里，我们享受着平台无关性带来的便利，但有时也需要与特定平台的原生库进行交互。这时，Java Native Access（JNA）为我们提供了一种更加便捷的方式，相较于传统的Java Native Interface（JNI），JNA无需编写C/C++代码，极大地简化了Java调用原生库的流程。本文将带您深入了解JNA，从基础概念到高级应用，帮助您全面掌握这门技术。
+Java 需要调用 C/C++ 编写的动态库时，有三条路：
 
-## JNA基础
+| 方案 | 需要写 C 代码 | 性能 | 适用 |
+|---|---|---|---|
+| JNI | 是（生成头文件、实现桥接） | 最高 | 极致性能、需要精确控制 |
+| **JNA** | 否 | 中（有反射与调用开销） | 快速集成现有库、原型验证 |
+| **FFM API**（`java.lang.foreign`） | 否 | 高（接近 JNI） | JDK 22+ 新项目首选 |
 
-### 什么是JNA？
-JNA是JNI的封装，它允许Java代码像调用本地Java方法一样直接调用本地共享库中的函数。JNA消除了JNI中繁琐的步骤，例如编写C头文件和处理类型映射，使开发者能够更轻松地集成和使用原生库。
+FFM API 在 JDK 22 正式转正（JDK 21 及以前是 preview），JDK 25 已成为 LTS，所以**新项目在 JDK 22+ 上应优先评估 FFM**，JNA 更适合存量项目或需要它的高级特性（自动结构体映射、回调、`Pointer` 算术）的场景。
 
-### JNA的优势和适用场景
-JNA的主要优势在于其易用性和开发效率。相较于JNI，JNA的学习曲线更平缓，开发者无需深入了解C/C++和JNI的复杂机制。 
+## 一、加载库
 
-**JNA适用于以下场景：**
-
-* 与现有的原生库集成，例如调用操作系统API或使用第三方C/C++库。
-* 需要高性能的本地代码操作，例如图像处理、数据加密等。
-* 快速原型开发，JNA可以更快地验证与原生库的集成。
-
-## JNA基本用法
-
-### 加载本地库
-JNA通过`Native`类的`loadLibrary()`方法加载本地库。该方法会根据操作系统和库的名称自动搜索并加载库文件。
+JNA 5.x 之后 `Native.loadLibrary` 已废弃，统一用 `Native.load`：
 
 ```java
-// 加载名为"mylib"的本地库
-NativeLibrary myLib = Native.loadLibrary("mylib", NativeLibrary.class);
-```
+import com.sun.jna.Library;
+import com.sun.jna.Native;
 
-### 定义和调用本地方法
-JNA使用接口定义本地方法，并通过`Library`接口加载对应的本地库。
-
-```java
-// 定义接口，映射本地方法
 public interface MyLib extends Library {
-  int add(int a, int b);
+    int add(int a, int b);
 }
 
-// 加载本地库并调用本地方法
-public class MyJNAApp {
-  public static void main(String[] args) {
-    MyLib myLib = (MyLib) Native.loadLibrary("mylib", MyLib.class);
-    int result = myLib.add(1, 2);
-    System.out.println("1 + 2 = " + result);
-  }
-}
+MyLib lib = Native.load("mylib", MyLib.class);
 ```
 
-## 数据类型映射
-JNA自动处理大部分Java和本地数据类型之间的映射，开发者无需手动进行转换。
+库名不需要写 `lib` 前缀和扩展名。JNA 按平台规则搜索：
 
-**常见数据类型映射:**
-
-| Java类型 | 本地类型  |
+| 平台 | 实际查找的文件 |
 |---|---|
-| byte | char |
-| short | short |
-| int | int |
-| long | long |
-| float | float |
-| double | double |
-| String | char* |
+| Linux | `libmylib.so` |
+| macOS | `libmylib.dylib` |
+| Windows | `mylib.dll` |
 
-### 处理复杂数据结构
-JNA支持映射结构体和联合体等复杂数据结构。开发者需要定义对应的Java类，并使用`@Structure`和`@Union`注解进行标记。
+搜索路径来自 `jna.library.path`、`java.library.path` 和系统默认路径。找不到时异常信息里会列出尝试过的所有文件名，直接看即可。
+
+显式指定完整路径或选项：
 
 ```java
+Map<String, Object> opts = new HashMap<>();
+opts.put(Library.OPTION_STRING_ENCODING, "UTF-8");   // 默认用系统编码，中文环境常踩坑
+opts.put(Library.OPTION_CALLING_CONVENTION, 0);      // stdcall=0(Windows 需注意)
+MyLib lib = Native.load("/opt/mylib/libmylib.so", MyLib.class, opts);
+```
+
+`OPTION_STRING_ENCODING` 值得单独提：JNA 默认用平台默认字符集转换 `String`，在 GBK 环境的 Windows 上会把 UTF-8 传给原生函数，表现为「中文变乱码」。
+
+## 二、类型映射
+
+| Java | C |
+|---|---|
+| `byte` | `int8_t` / `char` |
+| `short` | `int16_t` |
+| `int` | `int32_t` |
+| `long` | **平台相关**，见下 |
+| `float` / `double` | `float` / `double` |
+| `String` | `const char*` |
+| `Pointer` | 任意指针 |
+| `int[]` | `int*`（数组按地址传入） |
+
+**`long` 是最大的坑**：C 的 `long` 在 Linux 64 位是 8 字节，在 Windows 上是 4 字节（LP64 vs LLP64）。Java 的 `long` 恒为 8 字节，所以：
+
+- 原生参数是 C `long` 且跑在 Windows 上 → Java 侧用 `int`
+- 想让语义与平台无关 → Java 用 `NativeLong`，或直接改原生接口用 `int64_t`
+
+## 三、结构体映射
+
+```java
+import com.sun.jna.Structure;
+
 @Structure.FieldOrder({"x", "y"})
 public class Point extends Structure {
-  public int x;
-  public int y;
+    public int x;
+    public int y;
+
+    public Point() { super(); }
+    public Point(Pointer p) { super(p); read(); }   // 从原生内存反序列化
 }
 ```
 
-## 错误处理
-JNA调用本地方法时，可能会抛出`LastErrorException`或其子类异常。开发者可以使用`Native.getLastError()`获取错误码，并根据错误码进行处理。
+要点：
+
+1. **字段顺序必须与 C 结构体一致**，`@FieldOrder` 不写会按反射顺序（不可靠），JNA 5 之后要求显式声明
+2. **`Structure` 有两块内存视图**：Java 对象和原生内存。调用前要 `write()` 把 Java 字段同步到原生内存，调用后要 `read()` 反向同步。用 `Structure.ByReference` / `ByValue` 明确传递方式
+3. **结构体里不能有 Java 引用类型**（`String` 除外，会按 `char*` 处理），嵌套结构体要用同类实例
 
 ```java
+Point p = new Point();
+p.x = 10;
+p.y = 20;
+p.write();              // 同步到原生内存
+lib.fillPoint(p);       // 原生函数修改内存
+p.read();               // 读回 Java 字段
+```
+
+## 四、错误处理
+
+原生函数用 `errno` 报错时，接口方法要声明 `throws LastErrorException`，JNA 才会在返回值后检查 `errno` 并抛出：
+
+```java
+public interface MyLib extends Library {
+    int openDevice(int id) throws LastErrorException;
+}
+
 try {
-  // 调用本地方法
-  myLib.someMethod();
+    lib.openDevice(1);
 } catch (LastErrorException e) {
-  // 获取错误码
-  int errorCode = Native.getLastError();
-  // 处理错误
+    int code = e.getErrorCode();    // 等价于 Native.getLastError()
+    // errno 含义按平台查 man 手册
 }
 ```
 
-## 性能和优化
-JNA的性能略逊于JNI，但其易用性弥补了这方面的不足。
+不声明 `throws` 的话不会抛异常，只会静默返回错误值——这是排错时容易漏掉的一环。
 
-### 性能优化建议:
-* 减少本地方法调用的次数。
-* 使用更复杂的数据结构传递数据，减少数据拷贝。
-* 使用直接内存访问，避免数据缓冲区拷贝。
+## 五、性能与内存
 
-## 高级特性
+JNA 的每次调用都有跨 JNI 边界 + 反射分发的开销，量级在微秒级。优化方向：
 
-### 回调函数
-JNA可以通过`Callback`接口实现回调函数。开发者需要定义一个实现`Callback`接口的类，并在调用本地方法时传递该类的实例。
+| 手段 | 说明 |
+|---|---|
+| 减少调用次数 | 批量传数组而非循环单次调用 |
+| 用 `Memory` 直接分配 | `new Memory(size)` 分配堆外内存，配合 `Pointer` 读写，避免 `byte[]` 复制 |
+| 避免频繁创建 `Structure` | 结构体对象可复用，改完字段只需 `write()` |
+| 关闭类型检查开销 | 生产环境一般不需额外处理，`Native.load` 时不要开 `OPTION_ALLOW_OBJECTS` |
+
+**内存泄漏的两个来源**：
+
+1. `Memory` / `Native.malloc` 分配的内存由 GC 或 `dispose()` 释放，长生命周期对象里一直持有就会涨
+2. 原生库自己分配、返回指针的内存，JNA 不负责释放，必须调对应的 `free` 函数
+
+## 六、回调与线程
 
 ```java
 public interface MyCallback extends Callback {
-  void invoke(int result);
+    void invoke(int result);
 }
 ```
 
-### 多线程安全
-JNA本身并不保证线程安全。如果需要在多线程环境下使用JNA，开发者需要自行确保线程安全，例如使用同步机制或线程安全的本地库。
+回调对象必须被强引用持有（通常是静态字段或容器成员），否则被 GC 回收后原生侧再次调用会直接崩 JVM。这是 JNA 最典型的崩溃原因。
 
-## 实际应用
+线程方面：JNA 本身不做同步，原生库是否线程安全完全取决于库本身。同一 `Library` 实例可在多线程共用（方法调用本身是独立的），但共享的 `Structure`/`Memory` 实例需要自己加锁。
 
-### 应用场景举例
-假设我们需要在Java程序中获取系统CPU使用率。可以使用JNA调用操作系统提供的本地API。
+## 七、与 JDK 22+ FFM 的对比
 
-### 最佳实践和常见陷阱
-*  **最佳实践:**
-   *  使用最新版本的JNA。
-   *  清晰地定义接口和数据结构。
-   *  处理所有潜在的异常。
-   *  编写测试代码验证JNA代码的正确性。
-*  **常见陷阱:**
-   *  数据类型映射错误。
-   *  内存泄漏。
-   *  线程安全问题。
+```java
+// FFM 的写法（JDK 22+）
+Linker linker = Linker.nativeLinker();
+SymbolLookup lookup = SymbolLookup.libraryLookup("mylib", Arena.global());
+MethodHandle add = linker.downcallHandle(
+        lookup.find("add").orElseThrow(),
+        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
+int result = (int) add.invokeExact(1, 2);
+```
 
-## 结论
-JNA是Java调用原生代码的强大工具，它简化了JNI的复杂性，提高了开发效率。通过学习本文，您应该对JNA有了更深入的了解，并能够在实际项目中应用它。 JNA为Java开发者打开了通往原生世界的大门，使其能够更轻松地利用丰富的原生库资源。 
+差异：
+
+- FFM 是 JDK 内置，无需第三方依赖；JNA 需要额外 jar
+- FFM 调用开销更低，且内存生命周期由 `Arena` 明确管理，不会出现「忘了 free」
+- JNA 的结构体自动映射更省事；FFM 需要手动计算 `MemoryLayout`，样板代码更多
+
+选型建议：新项目 JDK 22+ 用 FFM；已有大量 JNA 代码、或需要自动结构体映射与丰富社区封装的（如 `jna-platform` 里的 Windows API），继续用 JNA。
+
+## 八、排查清单
+
+| 现象 | 常见原因 |
+|---|---|
+| `UnsatisfiedLinkError: no xxx in java.library.path` | 库名/路径不对，或依赖的其他 .so 缺失（用 `ldd` 查） |
+| 调用后 JVM 崩溃（hs_err_pid） | 回调对象被 GC、结构体内存布局与 C 不一致 |
+| 返回值明显不对 | `long` 宽度不匹配（Windows C long 是 4 字节） |
+| 中文乱码 | `OPTION_STRING_ENCODING` 未设 UTF-8 |
+| 内存持续增长 | `Memory` 未释放，或原生侧分配的内存没调 `free` |
+
+## 参考
+
+- [JNA 官方文档与 API](https://java-native-access.github.io/jna/5.14.0/javadoc/)
+- [JEP 454: Foreign Function & Memory API](https://openjdk.org/jeps/454)
+- [JNA Structure 使用说明](https://github.com/java-native-access/jna/blob/master/www/StructuresAndUnions.md)
