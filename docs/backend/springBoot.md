@@ -19,6 +19,8 @@ head:
     content: Spring Boot,自动配置,条件注解,启动流程,AutoConfiguration.imports,Spring Boot 3
 ---
 
+# Spring Boot 自动配置与启动流程
+
 Spring Boot 的配置出问题，多数情况可以在自动配置的条件判断里找到原因。这篇按加载顺序讲：先看四个环节，再讲启动流程，最后列常见故障。
 
 ## 自动配置的四个环节

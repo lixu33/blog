@@ -18,7 +18,11 @@ head:
     content: TypeScript, ES6, tsconfig, strict 模式, 类型收窄, 泛型, 箭头函数
 ---
 
-这篇记 TypeScript 的编译选项和 ES6 常用语法，重点放在实际项目里容易出问题的地方，不铺语法大全。
+# TypeScript 与 ES6 语法要点
+
+TypeScript 的语法文档写得很全，真正花时间的是配置和类型边界：`strict` 一开满屏报错、第三方库的类型对不上、`any` 从某个回调里悄悄扩散出去。
+
+这篇按「编译选项 → 类型系统 → ES6 语法 → 常见坑」四段记，示例都以能直接在项目里用为准。
 
 ## TypeScript 带来什么，代价是什么
 

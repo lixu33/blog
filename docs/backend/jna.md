@@ -19,6 +19,8 @@ head:
     content: JNA, Java Native Access, JNI, FFM API, Java 调用 dll, Structure 映射
 ---
 
+# JNA：Java 调用原生库的实践
+
 Java 调用 C/C++ 动态库有三种方式：JNI、JNA、FFM。触发场景大多是这三类——厂商只提供 `.so`/`.dll`，项目里已有现成的 native 库，或者某个系统调用 JDK 没有封装。
 
 这篇先对比三种方式，再讲 JNA 的调用流程和几个容易出错的地方。

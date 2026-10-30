@@ -18,6 +18,8 @@ head:
     content: Kafka,分区副本,ISR,KRaft,acks,min.insync.replicas,消费组 rebalance,幂等生产者
 ---
 
+# Kafka 存储与复制机制
+
 这篇讲 Kafka 的存储结构和副本同步，重点是几个互相依赖的参数：`acks`、`min.insync.replicas`、`max.poll.interval.ms`。先讲机制，再说这些参数怎么搭配。
 
 ## 先记住三件事

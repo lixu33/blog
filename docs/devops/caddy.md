@@ -19,6 +19,8 @@ head:
     content: Caddy, Caddyfile, 自动 HTTPS, 反向代理, caddy validate, caddy reload, encode gzip
 ---
 
+# Caddy 入门：自动 HTTPS 与反向代理
+
 Caddy 默认会自动申请和续期证书，域名配好就能用。前提是 80/443 能从公网访问，且需要的模块确实编译进了二进制——这两点决定了照着教程操作会不会卡住。
 
 ## Caddy 与其他 Web 服务器的差别在哪

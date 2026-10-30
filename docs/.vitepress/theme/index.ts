@@ -178,10 +178,11 @@ function patchHardcodedZhUi() {
   })
 }
 
-/** 看板娘：滚出首屏后淡出，回到顶部恢复（移动端她会一直挡住正文左下角）。
+/** 看板娘：文章详情页自动收起；其它页面滚出首屏后淡出。
  * 注意：l2d-widget 把舞台渲染成 body 直接子级的 fixed div（z-index 9999），
  * 不是 #l2d-widget 内部，所以按 z-index 找节点。 */
 let oml2dFadeBound = false
+let oml2dUpdate: (() => void) | null = null
 function bindOml2dFade() {
   if (typeof window === 'undefined' || oml2dFadeBound) return
   oml2dFadeBound = true
@@ -197,8 +198,14 @@ function bindOml2dFade() {
   const update = () => {
     const nodes = stageNodes()
     if (!nodes.length) return
-    const faded = window.scrollY > window.innerHeight * 0.4
-    const next = faded ? '0.12' : '1'
+    // 文章详情页直接收起；首页/时间线/分类页等列表页正常显示，滚动出首屏才收
+    const rawPath = window.location.pathname.replace(/\/+$/, '')
+    const path = rawPath.replace(/\.html$/, '')
+    const listPaths = new Set(['', '/index', '/en', '/en/index', '/timeline', '/en/timeline'])
+    const isListPage = listPaths.has(path) || rawPath.endsWith('/')
+    const inDoc = !isListPage && document.querySelectorAll('.VPDocAsideOutline a').length > 0
+    const scrolled = window.scrollY > window.innerHeight * 0.4
+    const next = inDoc || scrolled ? '0.1' : '1'
     if (last === next) return
     last = next
     for (const el of nodes) {
@@ -206,6 +213,7 @@ function bindOml2dFade() {
       el.style.opacity = next
     }
   }
+  oml2dUpdate = update
   window.addEventListener('scroll', update, { passive: true })
   window.addEventListener('resize', update, { passive: true })
   // 看板娘是异步挂载的，首帧可能还没有舞台节点
@@ -322,6 +330,7 @@ const Layout = defineComponent({
       const run = () => {
         scheduled = false
         wrapTables() // 表格横向滚动，中英都生效
+        oml2dUpdate?.() // SPA 切页后重新判断：详情页收起，列表页恢复
         patchNotFound() // 404 页：按 URL 前缀决定语言，与 locale 无关
         if (localeIndex.value !== 'en') return
         patchHardcodedZhUi()
