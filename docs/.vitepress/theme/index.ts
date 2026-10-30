@@ -178,24 +178,43 @@ function patchHardcodedZhUi() {
   })
 }
 
-/** 看板娘：滚出首屏后淡出，回到顶部恢复（移动端她会一直挡住正文左下角） */
+/** 看板娘：滚出首屏后淡出，回到顶部恢复（移动端她会一直挡住正文左下角）。
+ * 注意：l2d-widget 把舞台渲染成 body 直接子级的 fixed div（z-index 9999），
+ * 不是 #l2d-widget 内部，所以按 z-index 找节点。 */
 let oml2dFadeBound = false
 function bindOml2dFade() {
   if (typeof window === 'undefined' || oml2dFadeBound) return
   oml2dFadeBound = true
   let last: string | null = null
+
+  const stageNodes = () =>
+    [...document.body.children].filter((el) => {
+      if (el.id === 'app' || el.tagName !== 'DIV') return false
+      const z = Number.parseInt(getComputedStyle(el as HTMLElement).zIndex, 10)
+      return Number.isFinite(z) && z >= 9990
+    }) as HTMLElement[]
+
   const update = () => {
-    const el = document.getElementById('l2d-widget')
-    if (!el) return
+    const nodes = stageNodes()
+    if (!nodes.length) return
     const faded = window.scrollY > window.innerHeight * 0.4
     const next = faded ? '0.12' : '1'
     if (last === next) return
     last = next
-    el.style.transition = 'opacity .4s ease'
-    el.style.opacity = next
+    for (const el of nodes) {
+      el.style.transition = 'opacity .4s ease'
+      el.style.opacity = next
+    }
   }
   window.addEventListener('scroll', update, { passive: true })
   window.addEventListener('resize', update, { passive: true })
+  // 看板娘是异步挂载的，首帧可能还没有舞台节点
+  const timer = setInterval(() => {
+    if (stageNodes().length) {
+      update()
+      clearInterval(timer)
+    }
+  }, 500)
   update()
 }
 
