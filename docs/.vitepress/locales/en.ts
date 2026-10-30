@@ -2,6 +2,15 @@ import { defineLocaleConfig } from '@sugarat/theme/node'
 
 export const themeEN = defineLocaleConfig({
   author: 'Ray',
+  // 首页统计卡片（文章总数/本月/本周）——不覆盖会继承中文文案
+  home: {
+    avatarMode: 'split',
+    analysis: {
+      articles: {
+        title: ['Total Posts', 'This Month', 'This Week']
+      }
+    }
+  },
   hotArticle: {
     title: '🔥 Hot Articles',
     empty: 'No articles yet'
@@ -35,9 +44,7 @@ export const themeEN = defineLocaleConfig({
     mobileMinify: false,
   },
   recommend: {
-    title: '📖 Recommended',
-    nextText: 'Next',
-    sort: 'date'
+    title: '📖 Recommended'
   },
   buttonAfterArticle: {
     openTitle: 'Buy Me A ☕️',
@@ -45,18 +52,6 @@ export const themeEN = defineLocaleConfig({
     content: '<img src="https://img.lixu.dev/rest/2024/05/t7g1meK.webp">',
     icon: 'wechatPay',
   },
-  friend: [{
-    nickname: 'sugar',
-    des: 'Your fingertips have the power to change the world.',
-    avatar:
-      'https://img.cdn.sugarat.top/mdImg/MTY3NDk5NTE2NzAzMA==674995167030',
-    url: 'https://sugarat.top'
-  }, {
-    nickname: 'Vitepress',
-    des: 'Vite & Vue Powered Static Site Generator',
-    avatar: 'https://vitepress.dev/vitepress-logo-large.webp',
-    url: 'https://vitepress.dev/'
-  }],
   themeColor: 'el-blue',
   backToTop: {
     top: 10,
