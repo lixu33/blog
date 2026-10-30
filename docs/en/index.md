@@ -3,8 +3,8 @@ layout: home
 blog:
  name: 'Write Something Today'
  inspiring:
-  - Wasted mistakes, eroded by time, the most fleeting moments turn to bubbles.
-  - Cold lamp watching the sword, how many times have I achieved fame? The incense does not need to count the people, even if a river of smoke passes, ten thousand feet of clouds are buried, the lonely sun still shines on the ancient mausoleum.
+  - The palest ink is better than the best memory.
+  - Talk is cheap. Show me the code.
  inspiringTimeout: 3000
  pageSize: 6
  analysis: {
@@ -13,7 +13,3 @@ blog:
       }
     }
 ---
-
-Notes on AI, web & backend development, DevOps and security — practical write-ups from things I actually run and break.
-
-Articles are translated from Chinese and revised by hand; if anything reads oddly, the [Chinese original](/) is the source of truth.
