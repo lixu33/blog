@@ -178,6 +178,34 @@ function patchHardcodedZhUi() {
   })
 }
 
+/** 404 页：VitePress 只生成一个 404.html（lang 跟站点，全中文），
+ * 英文站访问不存在的路径会落到同一个页面，这里按 URL 前缀补英文文案。 */
+const NOT_FOUND_EN = {
+  title: 'PAGE NOT FOUND',
+  quote:
+    "But if you don't change your direction, and if you keep looking, you may end up where you are heading.",
+  linkText: 'Take me home'
+}
+
+function patchNotFound() {
+  if (typeof window === 'undefined') return
+  if (!window.location.pathname.startsWith('/en')) return
+  const box = document.querySelector('.NotFound')
+  if (!box) return
+
+  if (document.documentElement.lang !== 'en') document.documentElement.lang = 'en'
+  const setText = (sel: string, text: string) => {
+    const el = box.querySelector(sel)
+    if (el && (el.textContent || '').trim() !== text) el.textContent = text
+  }
+  setText('.title', NOT_FOUND_EN.title)
+  setText('.quote', NOT_FOUND_EN.quote)
+  setText('.action a', NOT_FOUND_EN.linkText)
+
+  const link = box.querySelector('.action a')
+  if (link && link.getAttribute('href') !== '/en/') link.setAttribute('href', '/en/')
+}
+
 const Layout = defineComponent({
   setup(_, { slots }) {
     const { localeIndex, theme } = useData()
@@ -239,9 +267,11 @@ const Layout = defineComponent({
       let scheduled = false
       const run = () => {
         scheduled = false
+        patchNotFound() // 404 页：按 URL 前缀决定语言，与 locale 无关
         if (localeIndex.value !== 'en') return
         patchHardcodedZhUi()
       }
+      patchNotFound()
       patchHardcodedZhUi() // 走一次，处理首屏已渲染的部分
       const observer = new MutationObserver(() => {
         if (scheduled) return

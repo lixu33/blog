@@ -192,6 +192,15 @@ export default defineConfig({
     ]
   ],
   themeConfig: {
+    // 404 页：VitePress 只生成一个，这里的文案给中文站用；
+    // 英文站由 theme/index.ts 的 patchNotFound() 按 /en 前缀覆盖
+    notFound: {
+      code: '404',
+      title: '页面未找到',
+      quote: '但是如果你没有改变方向，一直向前走，你可能会到达你本来就想去的地方。',
+      linkLabel: '返回首页',
+      linkText: '带我回首页'
+    },
     // 展示 2,3 级标题在目录中
     outline: {
       level: [2, 3],
