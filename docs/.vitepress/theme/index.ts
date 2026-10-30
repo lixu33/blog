@@ -178,6 +178,27 @@ function patchHardcodedZhUi() {
   })
 }
 
+/** 看板娘：滚出首屏后淡出，回到顶部恢复（移动端她会一直挡住正文左下角） */
+let oml2dFadeBound = false
+function bindOml2dFade() {
+  if (typeof window === 'undefined' || oml2dFadeBound) return
+  oml2dFadeBound = true
+  let last: string | null = null
+  const update = () => {
+    const el = document.getElementById('l2d-widget')
+    if (!el) return
+    const faded = window.scrollY > window.innerHeight * 0.4
+    const next = faded ? '0.12' : '1'
+    if (last === next) return
+    last = next
+    el.style.transition = 'opacity .4s ease'
+    el.style.opacity = next
+  }
+  window.addEventListener('scroll', update, { passive: true })
+  window.addEventListener('resize', update, { passive: true })
+  update()
+}
+
 /** 给正文里的表格套一层可横向滚动的容器。
  * 手机窄屏下多列表格会被压成一字一行，套 wrapper 后可以左右滑动。 */
 function wrapTables() {
@@ -287,6 +308,7 @@ const Layout = defineComponent({
         patchHardcodedZhUi()
       }
       wrapTables()
+      bindOml2dFade()
       patchNotFound()
       patchHardcodedZhUi() // 走一次，处理首屏已渲染的部分
       const observer = new MutationObserver(() => {

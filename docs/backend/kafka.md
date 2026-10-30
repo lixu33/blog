@@ -18,9 +18,7 @@ head:
     content: Kafka,分区副本,ISR,KRaft,acks,min.insync.replicas,消费组 rebalance,幂等生产者
 ---
 
-Kafka 的文档和源码解析都不缺，真正让人出事故的往往是几个配置的搭配：`acks` 设了 `all` 却没人管 `min.insync.replicas`，或者单批处理慢一点就反复 rebalance。
-
-这篇从存储和复制机制讲起，落到这些配置为什么必须那样配。
+这篇讲 Kafka 的存储结构和副本同步，重点是几个互相依赖的参数：`acks`、`min.insync.replicas`、`max.poll.interval.ms`。先讲机制，再说这些参数怎么搭配。
 
 ## 先记住三件事
 
