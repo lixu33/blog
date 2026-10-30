@@ -1,7 +1,7 @@
 import BlogTheme from '@sugarat/theme'
 import CategoryArticles from './CategoryArticles.vue'
 import TimelineArchive from './TimelineArchive.vue'
-import { defineComponent, h, watch } from 'vue'
+import { defineComponent, h, onMounted, watch } from 'vue'
 import { useData } from 'vitepress'
 
 // 自定义样式重载
@@ -36,74 +36,125 @@ if (typeof window !== 'undefined') {
   }) as typeof window.fetch
 }
 
-// 包装 Layout（看板娘已改用主题内置 oml2d/l2d-widget，无需自托管 HomePet）
-// key = localeIndex：主题的 BlogOml2d 硬编码在 BlogApp 里，且只在 onMounted 创建看板娘一次，
-// 不换 key 的话 SPA 切语言后菜单文案/问候语仍是旧语言（必须手动刷新）。
-// 换 key -> BlogApp 重挂载 -> 看板娘 destroy + 用新 locale 的配置重建。
+// ─────────────────────────────────────────────────────────────────────────────
+// 看板娘：自己持有实例，切语言不销毁重建
 //
-// 另需兜底清理：库的 destroy() 是 `await transitionend` 之后才 removeChild，
-// 该事件不触发时旧节点会残留（隐藏但占着 WebGL 上下文）。
-// 切换瞬间先记下旧节点，稍后如果还连着就强制移除。
-// 记住「休息」意图：切语言会让 BlogApp 整体重挂载、看板娘被 destroy 后重建，
-// 睡眠状态随之丢失（表现为：点了休息，切一下中英文，她又冒出来了）。
-// 这里只记录意图，重建完成后把新看板娘的休息按钮点一下，让她继续睡。
-const REST_LABELS = new Set(['休息', 'Rest'])
-let wantsRest = false
-if (typeof window !== 'undefined') {
-  document.addEventListener(
-    'click',
-    (e) => {
-      const el = e.target as HTMLElement | null
-      if (!el || !el.closest) return
-      // 菜单按钮的 title 就是 MenuItem.label
-      const menuBtn = el.closest('button[title]') as HTMLElement | null
-      if (menuBtn && REST_LABELS.has(menuBtn.title)) {
-        wantsRest = true
-        return
-      }
-      // 「正在休息」状态条（l2d-widget 写死 z-index: 9998）点一下就醒
-      if (el.closest('div[style*="z-index: 9998"]')) wantsRest = false
-    },
-    true
-  )
+// 为什么不用主题内置的 oml2d：
+//   主题的 BlogOml2d 硬编码在 BlogApp 里，且只在 onMounted 创建一次。要让文案跟随语言，
+//   之前只能给 Layout 换 key（BlogApp 重挂载 → destroy + 重建）。代价是切语言时旧看板娘滑出、
+//   新看板娘滑入，两个节点同屏约 2.5s，视觉上"消失又冒出来"，休息状态也会丢。
+//
+// 现在的做法（配置键改名为 oml2dSelf，主题不再渲染它）：
+//   - 实例只在站点首次挂载时创建一次，切语言不重建 → 无闪烁、无空白期、休息状态天然保持
+//   - 语言切换时就地改文案：菜单按钮的 title/文本直接改 DOM；tips 靠"原地替换数组内容"生效
+//     （l2d-widget 的 Jo() 对 welcomeMessage/messages 是直接引用而非拷贝，改内容即可，
+//      循环提示的 setInterval 每次都会重新读数组，所以下一句就是新语言）
+//   - 配置结构与主题一致：中文在 blog.oml2dSelf，英文在 blog.locales.en.oml2dSelf
+// ─────────────────────────────────────────────────────────────────────────────
+type AnyRecord = Record<string, any>
+
+let widget: any = null
+let createdOptions: AnyRecord | null = null
+let creating = false
+
+/** 读取当前语言的看板娘配置（与主题 resolveConfig 的合并方式一致） */
+function readOml2dConfig(themeConfig: any, locale: string): AnyRecord | undefined {
+  const blog = themeConfig?.blog ?? {}
+  const merged = { ...blog, ...(blog.locales?.[locale] ?? {}) }
+  return merged.oml2dSelf
 }
 
-// 重建后把休息状态补回去：轮询等待新 widget 的菜单挂好（最多 ~10s），找到就点。
-// 不能只等固定时长——模型是动态 import + fetch 的，慢网下建得比 2.5s 晚。
-const restoreRest = () => {
-  if (!wantsRest) return
-  let tries = 0
-  const timer = setInterval(() => {
-    const btn = Array.from(
-      document.querySelectorAll('body > div button[title]')
-    ).find((b) => REST_LABELS.has((b as HTMLElement).title)) as HTMLElement | undefined
-    if (btn) {
-      btn.click()
-      clearInterval(timer)
-      return
-    }
-    if (++tries > 40) clearInterval(timer)
-  }, 250)
+/** 原地替换数组内容，保持引用不变（库持有的是同一个数组） */
+function replaceArray(target: unknown, source: unknown) {
+  if (!Array.isArray(target) || !Array.isArray(source)) return
+  target.splice(0, target.length, ...source)
+}
+
+/** 把已创建实例的文案更新成当前语言 */
+function syncOml2dText(themeConfig: any, locale: string) {
+  const cfg = readOml2dConfig(themeConfig, locale)
+  if (!cfg || !createdOptions) return
+
+  // 1) tips：数组引用不变，只换内容
+  const oldTips = createdOptions.model?.tips
+  const newTips = cfg.model?.tips
+  if (oldTips && newTips) {
+    replaceArray(oldTips.welcomeMessage, newTips.welcomeMessage)
+    replaceArray(oldTips.messages, newTips.messages)
+    if (typeof newTips.duration === 'number') oldTips.duration = newTips.duration
+    if (typeof newTips.interval === 'number') oldTips.interval = newTips.interval
+  }
+
+  // 2) 菜单：l2d-widget 写死 z-index: 9999 作为容器，按钮顺序与 menus.items 一致
+  const root = document.querySelector('body > div[style*="z-index: 9999"]')
+  if (!root) return
+  const buttons = root.querySelectorAll('button[title]')
+  const items: AnyRecord[] = cfg.menus?.items ?? []
+  items.forEach((item, i) => {
+    const btn = buttons[i] as HTMLElement | undefined
+    if (!btn) return
+    btn.title = item.label
+    // 有图标时按钮里是 <svg>，标签只作为 title；图标加载失败才回退成文字
+    if (!btn.querySelector('svg')) btn.textContent = item.label
+  })
 }
 
 const Layout = defineComponent({
   setup(_, { slots }) {
-    const { localeIndex } = useData()
-    watch(localeIndex, () => {
-      const stale = Array.from(
-        document.querySelectorAll('body > div[style*="z-index: 9999"]')
-      ) as HTMLElement[]
-      const staleBars = (Array.from(document.querySelectorAll('body > div')) as HTMLElement[])
-        .filter((el) => el.style && el.style.zIndex === '9998')
-      // 退场过渡是 1500ms，留足余量；已正常移除的节点 isConnected 为 false，会被跳过
-      setTimeout(() => {
-        ;[...stale, ...staleBars].forEach((el) => el.isConnected && el.remove())
-        restoreRest()
-      }, 2500)
-    })
-    return () => [
-      h(BlogTheme.Layout, { key: localeIndex.value }, slots)
-    ]
+    const { localeIndex, theme } = useData()
+
+    const mountOml2d = async () => {
+      if (creating || widget) return
+      const cfg = readOml2dConfig(theme.value, localeIndex.value)
+      if (!cfg) return
+      const isMobile = window.matchMedia('(max-width: 768px)').matches
+      if (cfg.mobileDisplay === false && isMobile) return
+
+      const { mobileDisplay, mobileSize, ...rest } = cfg
+      // model.tips 的文案数组要自己拿一份可变副本：配置对象来自 VitePress 的 siteData，
+      // 在客户端会被深度冻结，直接 splice 会静默失败（严格模式下抛 TypeError），
+      // 而 l2d-widget 的 Jo() 保留的是同一引用，所以改副本内容就能实时换语言。
+      const srcTips = cfg.model?.tips
+      const modelCopy = cfg.model
+        ? {
+            ...cfg.model,
+            ...(srcTips
+              ? {
+                  tips: {
+                    ...srcTips,
+                    welcomeMessage: Array.isArray(srcTips.welcomeMessage)
+                      ? [...srcTips.welcomeMessage]
+                      : srcTips.welcomeMessage,
+                    messages: Array.isArray(srcTips.messages)
+                      ? [...srcTips.messages]
+                      : srcTips.messages
+                  }
+                }
+              : {})
+          }
+        : cfg.model
+      const options: AnyRecord = {
+        size: { width: 200, height: 200 },
+        ...rest,
+        model: modelCopy,
+        ...(isMobile && mobileSize ? { size: mobileSize } : {})
+      }
+      createdOptions = options
+      creating = true
+      try {
+        const { createWidget } = await import('l2d-widget')
+        widget = createWidget(options)
+      } finally {
+        creating = false
+      }
+    }
+
+    onMounted(mountOml2d)
+
+    // 切语言：实例不动，只刷新文案
+    watch(localeIndex, (next) => syncOml2dText(theme.value, next))
+
+    return () => [h(BlogTheme.Layout, { key: localeIndex.value }, slots)]
   }
 })
 

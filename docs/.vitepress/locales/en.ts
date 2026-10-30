@@ -68,8 +68,9 @@ export const themeEN = defineLocaleConfig({
       tag: 'Tags',
     }
   },
-  // 看板娘英文文案：主题按 locale 用这里的 oml2d 浅覆盖根配置（浅合并，必须写全）
-  oml2d: {
+  // 看板娘英文文案：按 locale 用这里的 oml2dSelf 浅覆盖根配置（浅合并，必须写全）
+  // 键名与 blog-theme.ts 一致，主题不认这个键，由 theme/index.ts 自管实例
+  oml2dSelf: {
     model: {
       path: '/live2d/whale-girl-v1/c_0120.model3.json',
       scale: 1,

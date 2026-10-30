@@ -84,8 +84,10 @@ const blogTheme = getThemeConfig({
   //      加载时随机抽一次，所以这里必须写任何钟点都通用的问候语，不能写「早上好 / 晚上好」。
   //   3) 按钮文字来自 MenuItem.label；配了 icon 就显示图标（运行时从 api.iconify.design 拉取），
   //      label 同时作为 title 提示。图标拉取失败会回退成文字。
-  // 英文文案见 locales/en.ts 的 oml2d（主题按 locale 浅合并 blog 配置，须写全）
-  oml2d: {
+  // 键名叫 oml2dSelf 而不是 oml2d：主题只认 oml2d，改名后它不再自动渲染看板娘，
+  // 改由 theme/index.ts 自己持有实例（切语言不销毁重建，只就地换文案）。
+  // 英文文案见 locales/en.ts 的 oml2dSelf（按 locale 浅合并 blog 配置，须写全）
+  oml2dSelf: {
     model: {
       path: '/live2d/whale-girl-v1/c_0120.model3.json',
       scale: 1,
