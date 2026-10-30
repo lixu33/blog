@@ -1,12 +1,13 @@
 ---
 isTimeLine: true
-title: JNA Java Native Access Guide
-description: This article provides an in-depth exploration of JNA (Java Native Access), covering its principles, usage, performance optimization, and practical applications to help you fully master this powerful Java technology.
+title: "JNA: Calling Native Libraries from Java in Practice"
+description: JNA’s invocation model, type and struct mapping, memory and threading considerations, and trade-offs versus JNI and the FFM API finalized in JDK 22. Includes API changes since JNA 5.x (loadLibrary deprecated) and common pitfalls.
 date: 2024-06-03
+updated: 2026-10-31
 author: 烟霞不系舟
 lang: zh-CN
 categories:
-- Backend Technologies
+- Backend Technology
 - Backend
 tags:
 - Java
@@ -15,134 +16,184 @@ tags:
 head:
 - - meta
   - name: keywords
-    content: JNA,Java Native Access,JNI,Java Native Method Invocation,JNA Tutorial
-translatedFrom: eff78ca661429306
+    content: JNA,Java Native Access,JNI,FFM API,Java calling DLLs,Structure mapping
+translatedFrom: 587e86b7485f558d
 ---
-# Deep Dive into JNA: A Powerful Tool for Java Native Access
+## When to Use JNA
 
-## Introduction
-In the Java world, we enjoy the convenience brought by platform independence, but sometimes we also need to interact with native libraries for specific platforms. In such cases, Java Native Access (JNA) provides a more convenient approach. Compared with the traditional Java Native Interface (JNI), JNA eliminates the need to write C/C++ code, greatly simplifying the process of calling native libraries from Java. This article will guide you through an in-depth understanding of JNA, from basic concepts to advanced applications, helping you fully master this technology.
+When Java needs to call a dynamic library written in C/C++, there are three paths:
 
-## JNA Basics
+| Approach | Need to write C code | Performance | Suitable for |
+|---|---|---|---|
+| JNI | Yes (generate header files, implement bridge) | Highest | Extreme performance, need precise control |
+| **JNA** | No | Medium (reflection and call overhead) | Rapid integration with existing libraries, prototyping |
+| **FFM API** (`java.lang.foreign`) | No | High (close to JNI) | Preferred for new projects on JDK 22+ |
 
-### What Is JNA?
-JNA is a wrapper around JNI. It allows Java code to directly call functions in native shared libraries just like calling local Java methods. JNA eliminates cumbersome steps in JNI, such as writing C header files and handling type mappings, enabling developers to integrate and use native libraries more easily.
+The FFM API was finalized in JDK 22 (preview in JDK 21 and earlier), and JDK 25 has become LTS. Therefore, **new projects on JDK 22+ should evaluate FFM first**; JNA is better suited to existing projects or scenarios that need its advanced features (automatic struct mapping, callbacks, `Pointer` arithmetic).
 
-### Advantages and Use Cases of JNA
-JNA's main advantages lie in its ease of use and development efficiency. Compared with JNI, JNA has a gentler learning curve, and developers do not need to deeply understand the complex mechanisms of C/C++ and JNI.
+## 1. Loading the Library
 
-**JNA is suitable for the following scenarios:**
-
-* Integrating with existing native libraries, such as calling operating system APIs or using third-party C/C++ libraries.
-* Scenarios requiring high-performance native code operations, such as image processing, data encryption, etc.
-* Rapid prototyping, where JNA can validate integration with native libraries faster.
-
-## Basic JNA Usage
-
-### Loading Native Libraries
-JNA loads native libraries through the `loadLibrary()` method of the `Native` class. This method automatically searches for and loads library files based on the operating system and library name.
+After JNA 5.x, `Native.loadLibrary` is deprecated; use `Native.load` uniformly:
 
 ```java
-// 加载名为"mylib"的本地库
-NativeLibrary myLib = Native.loadLibrary("mylib", NativeLibrary.class);
-```
+import com.sun.jna.Library;
+import com.sun.jna.Native;
 
-### Defining and Calling Native Methods
-JNA uses interfaces to define native methods and loads the corresponding native library through the `Library` interface.
-
-```java
-// 定义接口，映射本地方法
 public interface MyLib extends Library {
-  int add(int a, int b);
+    int add(int a, int b);
 }
 
-// 加载本地库并调用本地方法
-public class MyJNAApp {
-  public static void main(String[] args) {
-    MyLib myLib = (MyLib) Native.loadLibrary("mylib", MyLib.class);
-    int result = myLib.add(1, 2);
-    System.out.println("1 + 2 = " + result);
-  }
-}
+MyLib lib = Native.load("mylib", MyLib.class);
 ```
 
-## Data Type Mapping
-JNA automatically handles the mapping between most Java and native data types, so developers do not need to perform conversions manually.
+The library name does not need the `lib` prefix or file extension. JNA searches according to platform rules:
 
-**Common data type mappings:**
-
-| Java Type | Native Type |
+| Platform | Actual file searched |
 |---|---|
-| byte | char |
-| short | short |
-| int | int |
-| long | long |
-| float | float |
-| double | double |
-| String | char* |
+| Linux | `libmylib.so` |
+| macOS | `libmylib.dylib` |
+| Windows | `mylib.dll` |
 
-### Handling Complex Data Structures
-JNA supports mapping complex data structures such as structs and unions. Developers need to define corresponding Java classes and annotate them with `@Structure` and `@Union`.
+The search path comes from `jna.library.path`, `java.library.path`, and system default paths. If not found, the exception message lists all filenames attempted; just look there.
+
+Explicitly specify the full path or options:
 
 ```java
+Map<String, Object> opts = new HashMap<>();
+opts.put(Library.OPTION_STRING_ENCODING, "UTF-8");   // 默认用系统编码，中文环境常踩坑
+opts.put(Library.OPTION_CALLING_CONVENTION, 0);      // stdcall=0(Windows 需注意)
+MyLib lib = Native.load("/opt/mylib/libmylib.so", MyLib.class, opts);
+```
+
+`OPTION_STRING_ENCODING` deserves a separate mention: JNA converts `String` using the platform default charset by default. On Windows with a GBK environment, it will pass UTF-8 to native functions, resulting in "Chinese text becoming garbled."
+
+## 2. Type Mapping
+
+| Java | C |
+|---|---|
+| `byte` | `int8_t` / `char` |
+| `short` | `int16_t` |
+| `int` | `int32_t` |
+| `long` | **platform-dependent**, see below |
+| `float` / `double` | `float` / `double` |
+| `String` | `const char*` |
+| `Pointer` | any pointer |
+| `int[]` | `int*` (array passed by address) |
+
+**`long` is the biggest trap**: C `long` is 8 bytes on 64-bit Linux and 4 bytes on Windows (LP64 vs LLP64). Java `long` is always 8 bytes, so:
+
+- If the native parameter is C `long` and runs on Windows → use `int` on the Java side
+- If you want platform-independent semantics → use `NativeLong` on the Java side, or change the native interface to use `int64_t` directly
+
+## 3. Struct Mapping
+
+```java
+import com.sun.jna.Structure;
+
 @Structure.FieldOrder({"x", "y"})
 public class Point extends Structure {
-  public int x;
-  public int y;
+    public int x;
+    public int y;
+
+    public Point() { super(); }
+    public Point(Pointer p) { super(p); read(); }   // 从原生内存反序列化
 }
 ```
 
-## Error Handling
-When JNA calls native methods, it may throw `LastErrorException` or its subclass exceptions. Developers can use `Native.getLastError()` to obtain the error code and handle it accordingly.
+Key points:
+
+1. **Field order must match the C struct**. If `@FieldOrder` is omitted, reflection order is used (unreliable); since JNA 5, explicit declaration is required
+2. **`Structure` has two memory views**: the Java object and native memory. Before a call, use `write()` to synchronize Java fields to native memory; after the call, use `read()` to synchronize back. Use `Structure.ByReference` / `ByValue` to make the passing mode explicit
+3. **Structs cannot contain Java reference types** (except `String`, which is handled as `char*`); nested structs must use instances of the same class
 
 ```java
+Point p = new Point();
+p.x = 10;
+p.y = 20;
+p.write();              // 同步到原生内存
+lib.fillPoint(p);       // 原生函数修改内存
+p.read();               // 读回 Java 字段
+```
+
+## 4. Error Handling
+
+When a native function reports errors via `errno`, the interface method must declare `throws LastErrorException`; only then will JNA check `errno` after the return value and throw:
+
+```java
+public interface MyLib extends Library {
+    int openDevice(int id) throws LastErrorException;
+}
+
 try {
-  // 调用本地方法
-  myLib.someMethod();
+    lib.openDevice(1);
 } catch (LastErrorException e) {
-  // 获取错误码
-  int errorCode = Native.getLastError();
-  // 处理错误
+    int code = e.getErrorCode();    // 等价于 Native.getLastError()
+    // errno 含义按平台查 man 手册
 }
 ```
 
-## Performance and Optimization
-JNA's performance is slightly inferior to JNI, but its ease of use compensates for this shortcoming.
+If `throws` is not declared, no exception is thrown; it only silently returns the error value—this is an easy step to miss during troubleshooting.
 
-### Performance Optimization Suggestions:
-* Reduce the number of native method calls.
-* Use more complex data structures to pass data and reduce data copying.
-* Use direct memory access to avoid data buffer copying.
+## 5. Performance and Memory
 
-## Advanced Features
+Every JNA call incurs overhead from crossing the JNI boundary plus reflection dispatch, on the order of microseconds. Optimization directions:
 
-### Callback Functions
-JNA can implement callback functions through the `Callback` interface. Developers need to define a class that implements the `Callback` interface and pass an instance of that class when calling native methods.
+| Approach | Description |
+|---|---|
+| Reduce number of calls | Pass arrays in batches instead of calling once per iteration |
+| Allocate directly with `Memory` | `new Memory(size)` allocates off-heap memory; use `Pointer` to read/write and avoid `byte[]` copying |
+| Avoid creating `Structure` frequently | Struct objects can be reused; after changing fields, just call `write()` |
+| Disable type-checking overhead | Generally no extra handling is needed in production; do not enable `OPTION_ALLOW_OBJECTS` in `Native.load` |
+
+**Two sources of memory leaks**:
+
+1. Memory allocated by `Memory` / `Native.malloc` is released by GC or `dispose()`; if it is held continuously in a long-lived object, it will grow
+2. For memory allocated by the native library itself and returned as a pointer, JNA is not responsible for freeing it; you must call the corresponding `free` function
+
+## 6. Callbacks and Threads
 
 ```java
 public interface MyCallback extends Callback {
-  void invoke(int result);
+    void invoke(int result);
 }
 ```
 
-### Multithreading Safety
-JNA itself does not guarantee thread safety. If JNA needs to be used in a multithreaded environment, developers must ensure thread safety themselves, for example by using synchronization mechanisms or thread-safe native libraries.
+The callback object must be held by a strong reference (usually a static field or container member); otherwise, after it is GC'd, a subsequent native call will crash the JVM directly. This is the most typical cause of JNA crashes.
 
-## Practical Applications
+Regarding threads: JNA itself does not synchronize; whether the native library is thread-safe depends entirely on the library itself. The same `Library` instance can be shared across threads (method calls themselves are independent), but shared `Structure`/`Memory` instances must be locked manually.
 
-### Example Application Scenario
-Suppose we need to obtain system CPU usage in a Java program. We can use JNA to call native APIs provided by the operating system.
+## 7. Comparison with JDK 22+ FFM
 
-### Best Practices and Common Pitfalls
-*  **Best practices:**
-   *  Use the latest version of JNA.
-   *  Clearly define interfaces and data structures.
-   *  Handle all potential exceptions.
-   *  Write test code to verify the correctness of JNA code.
-*  **Common pitfalls:**
-   *  Data type mapping errors.
-   *  Memory leaks.
-   *  Thread safety issues.
+```java
+// FFM 的写法（JDK 22+）
+Linker linker = Linker.nativeLinker();
+SymbolLookup lookup = SymbolLookup.libraryLookup("mylib", Arena.global());
+MethodHandle add = linker.downcallHandle(
+        lookup.find("add").orElseThrow(),
+        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
+int result = (int) add.invokeExact(1, 2);
+```
 
-## Conclusion
-JNA is a powerful tool for Java to call native code. It simplifies the complexity of JNI and improves development efficiency. After reading this article, you should have a deeper understanding of JNA and be able to apply it in real projects. JNA opens the door to the native world for Java developers, enabling them to more easily leverage rich native library resources.
+Differences:
+
+- FFM is built into the JDK and requires no third-party dependency; JNA requires an additional jar
+- FFM has lower call overhead, and memory lifetime is explicitly managed by `Arena`, so there is no "forgot to free" situation
+- JNA's automatic struct mapping is more convenient; FFM requires manual calculation of `MemoryLayout`, resulting in more boilerplate code
+
+Selection advice: for new projects on JDK 22+, use FFM; if you already have a large amount of JNA code, or need automatic struct mapping and rich community wrappers (such as the Windows API in `jna-platform`), continue using JNA.
+
+## 8. Troubleshooting Checklist
+
+| Symptom | Common Cause |
+|---|---|
+| `UnsatisfiedLinkError: no xxx in java.library.path` | Incorrect library name/path, or another dependent .so is missing (check with `ldd`) |
+| JVM crash after call (hs_err_pid) | Callback object was GC'd, or struct memory layout does not match C |
+| Return value is clearly wrong | `long` width mismatch (Windows C long is 4 bytes) |
+| Chinese garbled text | `OPTION_STRING_ENCODING` is not set to UTF-8 |
+| Memory keeps growing | `Memory` is not released, or memory allocated on the native side is not freed with `free` |
+
+## References
+
+- [JNA official documentation and API](https://java-native-access.github.io/jna/5.14.0/javadoc/)
+- [JEP 454: Foreign Function & Memory API](https://openjdk.org/jeps/454)
+- [JNA Structure usage instructions](https://github.com/java-native-access/jna/blob/master/www/StructuresAndUnions.md)

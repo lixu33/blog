@@ -1,8 +1,9 @@
 ---
 isTimeLine: true
-title: Getting Started with Caddy
-description: Caddy is a powerful, easy-to-use open-source web server known for its automatic HTTPS feature.
+title: "Getting Started with Caddy: Automatic HTTPS and Reverse Proxy"
+description: Installing Caddy v2, Caddyfile basics, and reverse proxy configuration. Focuses on automatic HTTPS triggers, why the tls directive is unnecessary, why rate_limit errors at startup, and correct usage of validate/reload.
 date: 2024-05-15
+updated: 2026-10-31
 tags:
 - Web server
 - Caddy
@@ -15,186 +16,232 @@ categories:
 head:
 - - meta
   - name: keywords
-    content: Caddy,Web server,Reverse proxy,Getting Started with Caddy,Caddy Tutorial,HTTPS configuration,Reverse proxy configuration,Caddyfile
-translatedFrom: 20185ba713139114
+    content: Caddy,Caddyfile,Automatic HTTPS,Reverse proxy,caddy validate,caddy reload,encode gzip
+translatedFrom: df190c84b5c29574
 ---
-# Getting Started with Caddy: Quickly Build a Modern Web Server
+## How Caddy Differs from Other Web Servers
 
-Compared with Nginx and Apache, Caddy offers advantages such as simple configuration, automatic HTTPS, rich features, and superior performance. It is suitable as a web server for scenarios such as personal websites, web applications, API services, reverse proxying, and load balancing.
+Caddy is written in Go, and its biggest difference from Nginx/Apache is its **default behavior**:
 
-## 1. Introduction
+- After a domain is configured, it automatically obtains and renews certificates; no additional TLS directives are needed
+- The config file is the Caddyfile (there is also a native JSON format); dozens of lines can express common requirements
+- A single binary; plugins are selected at compile time (this differs from Nginx's modular approach and leads to the "directive exists but is unavailable" problem, see 6.3)
 
-### 1.1 What Is Caddy?
+The cost: plugins must be custom-compiled, and `xcaddy build` is a common operation.
 
-Caddy is an open-source, powerful, and easy-to-use modern web server written in Go. It is known for its powerful features, security, and native HTTPS support. Whether you are building a personal website, hosting a web application, or setting up a reverse proxy, Caddy can simplify your workflow with concise configuration and efficient performance.
+## 1. Installation
 
-### 1.2 Why Choose Caddy? Comparison with Nginx and Apache
-
-Compared with traditional web servers such as Nginx and Apache, Caddy's advantages include:
-
-*   **Easy to configure:** Caddy uses a concise and easy-to-understand Caddyfile for configuration. There is no need to deal with complex configuration files and directives, so even beginners can get started easily.
-*   **Automatic HTTPS:** Caddy can automatically obtain and renew Let's Encrypt certificates, making it easy to enable HTTPS encryption and ensure website security.
-*   **Rich built-in features:** Caddy includes many common features such as reverse proxy, load balancing, and Gzip compression. No additional modules are required, and it works out of the box.
-*   **Superior performance:** Caddy is based on Go's high-performance networking library and can handle large numbers of concurrent connections, providing fast and reliable service.
-
-### 1.3 Main Features and Advantages of Caddy
-
-*   **Automatic HTTPS (Let's Encrypt)**
-*   **HTTP/2 support**
-*   **Virtual hosts**
-*   **Reverse proxy**
-*   **Load balancing**
-*   **Static file serving**
-*   **Gzip compression**
-*   **Request limiting**
-*   **Easily extensible plugin system**
-
-## 2. Caddy Installation
-
-Caddy provides precompiled binaries for Linux, macOS, and Windows, making it easy for users to install quickly.
-
-**Linux (using a package manager):**
+**Debian/Ubuntu (official repository, recommended)**
 
 ```bash
-# Debian/Ubuntu
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
 sudo apt update
 sudo apt install caddy
-
-# CentOS/Fedora
-sudo yum install caddy
 ```
 
-**macOS (using Homebrew):**
+**macOS**
 
 ```bash
-brew update
 brew install caddy
 ```
 
-**Windows (using Chocolatey):**
-
-```powershell
-choco install caddy
-```
-
-**Install from source:**
+**Build from source (when extra plugins are needed)**
 
 ```bash
-go get github.com/caddyserver/caddy/v2
-go install github.com/caddyserver/caddy/v2/cmd/caddy
+go install github.com/caddyserver/caddy/v2/cmd/caddy@latest
+# 或者用 xcaddy 打插件
+xcaddy build --with github.com/caddyserver/ratelimit
 ```
 
-## 3. Caddyfile Getting Started: Simple Configuration Example
+Note that the old `go get` form is no longer used to install executables after Go 1.17; `go install ...@version` is the current way.
 
-The Caddyfile is Caddy's configuration file, using concise and easy-to-understand syntax. The following is a simple Caddyfile example:
+## 2. Minimal Caddyfile Example
 
-```
+```caddyfile
 example.com {
-  root * /var/www/example.com
-  file_server
+    root * /var/www/example.com
+    file_server
 }
 ```
 
-This configuration file defines a website `example.com`, sets the root directory to `/var/www/example.com`, and enables static file serving.
+Three things: match the domain, set the root directory, and enable static file serving.
 
-## 4. Caddy HTTPS Configuration: Automatically Obtain Let's Encrypt Certificates
+`*` here means "match all requests"; it is a path matcher, not a wildcard domain.
 
-Caddy can automatically obtain and renew Let's Encrypt certificates. Simply add the `tls` directive to the Caddyfile:
+## 3. Automatic HTTPS: When It Is Triggered
 
-```
-example.com {
-  root * /var/www/example.com
-  file_server
-  tls
+**No need to write the `tls` directive.** As long as what appears in the Caddyfile is a domain (and 80/443 are publicly accessible), Caddy will:
+
+1. Request a certificate from Let's Encrypt or ZeroSSL (ACME)
+2. Automatically complete HTTP-01 or TLS-ALPN-01 validation
+3. Automatically renew before expiration
+
+Common cases that cause automatic HTTPS to fail:
+
+| Symptom | Cause |
+|---|---|
+| Stuck at `obtaining certificate` | 80/443 is blocked by a firewall or cloud security group |
+| Certificate obtained but the browser reports a certificate error | Domain resolution does not point to this machine, or the CDN origin configuration in between is wrong |
+| Internal domain application fails | Internal domains cannot complete ACME validation; a DNS-01 challenge or a self-signed certificate is required |
+
+Custom certificates (internal network, existing certificates) are the only case that requires `tls`:
+
+```caddyfile
+internal.example.com {
+    tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pem
+    root * /var/www
+    file_server
 }
 ```
 
-Caddy will automatically generate certificates and configure HTTPS access. If you need to use your own certificates, you can use the `tls.cert_file` and `tls.key_file` directives to specify the certificate file and key file.
+To use Caddy self-signed locally/on an internal network:
 
-## 5. Caddy Reverse Proxy Configuration: Easily Forward Traffic
-
-Caddy can act as a reverse proxy and forward traffic to backend applications. The following is an example of forwarding traffic to local port 8080:
-
-```
-example.com {
-  reverse_proxy localhost:8080
+```caddyfile
+{
+    local_certs
 }
 ```
 
-You can also use the `reverse_proxy` directive to configure multiple backend servers and set a load balancing policy:
+## 4. Reverse Proxy
 
-```
+```caddyfile
 example.com {
-  reverse_proxy localhost:8080 localhost:8081 {
-    lb_policy round_robin
-  }
-}
-```
-
-## 6. Caddy Advanced Features
-
-### 6.1 Virtual Hosts: Serve Multiple Websites
-
-Caddy can easily serve multiple websites. You can use multiple blocks in the Caddyfile to define different virtual hosts, with each block corresponding to a domain name or IP address.
-
-```
-example.com {
-  root * /var/www/example.com
-  file_server
-}
-
-blog.example.com {
-  root * /var/www/blog.example.com
-  file_server
-  reverse_proxy localhost:3000
-}
-```
-
-### 6.2 Static File Serving: Optimize Performance and Caching
-
-Caddy can efficiently serve static files and provides caching mechanisms to improve performance. You can use the `file_server` directive to enable static file serving and the `browse` directive to enable directory browsing.
-
-```
-example.com {
-  root * /var/www/example.com
-  file_server {
-    browse
-  }
-}
-```
-
-### 6.3 Middleware: Extend Caddy Functionality
-
-Caddy supports middleware, which can extend Caddy's functionality, such as Gzip compression, request limiting, and redirects. You can use the `route` directive to define routing rules and use middleware in those rules.
-
-```
-example.com {
-  root * /var/www/example.com
-  file_server
-
-  route /api/* {
     reverse_proxy localhost:8080
-    gzip
-    rate_limit
-  }
 }
 ```
 
-### 6.4 API: Dynamic Configuration with the Caddy API
+Multiple backends + load balancing policy:
 
-Caddy provides an API interface that allows you to dynamically configure Caddy using HTTP requests. You can use the API for certificate management, configuration updates, statistics retrieval, and other operations.
+```caddyfile
+example.com {
+    reverse_proxy 10.0.0.1:8080 10.0.0.2:8080 {
+        lb_policy round_robin   # 可选 least_conn / ip_hash / random / first
+        health_uri /health
+        health_interval 10s
+    }
+}
+```
 
-## 7. Caddy Use Cases
+Several practical points for reverse proxying:
 
-*   **Personal websites and blogs:** Caddy can easily host your personal website or blog and provide HTTPS encryption and static file serving.
-*   **Web applications and API services:** Caddy can act as a reverse proxy, forwarding traffic to your web application or API service and providing load balancing and security protection.
-*   **Reverse proxy and load balancing:** Caddy can act as a reverse proxy, distributing traffic to multiple backend servers and providing load balancing to improve availability and performance.
-*   **Development environments:** Caddy can serve as a local development server, providing automatic HTTPS and fast file serving for convenient web development and debugging.
+- Automatically passes through `X-Forwarded-For` and `X-Forwarded-Proto`; the backend gets the real IP without extra configuration
+- WebSocket is supported automatically; no `Upgrade` header handling is needed
+- When the upstream is HTTPS, use `reverse_proxy https://backend:8443`; for self-signed certificates add `transport http { tls_insecure_skip_verify }` (test environments only)
 
-## 8. Summary and Resources
+## 5. Routing and Middleware
 
-Caddy is a powerful and easy-to-use modern web server that offers many advantages, such as automatic HTTPS, reverse proxying, and load balancing. Caddy is suitable for various use cases, from personal websites to large web applications.
+Caddy directives execute in a fixed order (`encode` → `reverse_proxy`, etc. have a built-in order); to force a custom order, use `route`:
 
-*   **Caddy official website:** https://caddyserver.com/
-*   **Caddy documentation:** https://caddyserver.com/docs/
-*   **Caddy GitHub repository:** https://github.com/caddyserver/caddy
+```caddyfile
+example.com {
+    route /api/* {
+        reverse_proxy localhost:8080
+    }
+    route {
+        root * /var/www/example.com
+        file_server
+    }
+}
+```
+
+### 5.1 Compression
+
+The `gzip` directive has been replaced by `encode` in v2:
+
+```caddyfile
+example.com {
+    encode zstd gzip
+    root * /var/www
+    file_server
+}
+```
+
+### 5.2 Common Middleware
+
+```caddyfile
+example.com {
+    # 安全响应头
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        -Server
+    }
+
+    # 访问日志（JSON 行格式）
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 50mb
+            roll_keep 5
+        }
+    }
+
+    # 静态压缩文件优先
+    root * /var/www
+    file_server {
+        precompressed zstd gzip
+    }
+}
+```
+
+### 5.3 `rate_limit` Is Not a Built-in Directive
+
+Writing `rate_limit` directly will produce:
+
+```
+Error: adapting config using caddyfile: unrecognized directive: rate_limit
+```
+
+It comes from the third-party plugin `github.com/mholt/caddy-ratelimit` and must be recompiled with `xcaddy build --with github.com/mholt/caddy-ratelimit`. This is the most common reason for "the tutorial runs, but my machine reports an error"—Caddy's directive set depends on which modules were selected at compile time; `caddy list-modules` lists what the current binary actually has.
+
+## 6. Operations Essentials
+
+### 6.1 Validate Before Reloading
+
+```bash
+caddy validate --config /etc/caddy/Caddyfile   # 只校验，不生效
+sudo systemctl reload caddy                    # 平滑重载，不断连接
+```
+
+Modifying the config and directly running `restart` will interrupt connections; `reload` is the zero-downtime way. `validate` can catch syntax errors before reloading and prevent the service from failing to start.
+
+### 6.2 Formatting
+
+```bash
+caddy fmt --overwrite /etc/caddy/Caddyfile
+```
+
+### 6.3 Check Which Directives the Current Binary Supports
+
+```bash
+caddy list-modules | grep -i ratelimit
+```
+
+When troubleshooting "directive not recognized", first confirm whether the module exists, then suspect the syntax.
+
+### 6.4 Admin API
+
+Caddy exposes the config API on `localhost:2019`; `caddy reload` actually POSTs the config to it:
+
+```bash
+curl localhost:2019/config/          # 查看当前生效配置
+curl localhost:2019/metrics          # Prometheus 指标
+```
+
+This path is also the entry point for dynamic configuration in containerized deployments.
+
+## 7. Typical Uses
+
+- **Static sites / blogs**: `root` + `file_server`, with fully automatic certificates
+- **Reverse proxy**: expose internal network services (panels, APIs, database admin UIs) to a domain, eliminating a separate Nginx
+- **Local development**: `caddy file-server --browse` starts a server in one line, or `caddy reverse-proxy --from :80 --to :3000`
+- **Multiple sites coexisting**: write multiple domain blocks in the same Caddyfile; certificates are applied for independently
+
+## References
+
+- [Caddy official documentation](https://caddyserver.com/docs/)
+- [Caddyfile directive reference](https://caddyserver.com/docs/caddyfile/directives)
+- [Automatic HTTPS documentation](https://caddyserver.com/docs/automatic-https)
+- [caddy-ratelimit plugin](https://github.com/mholt/caddy-ratelimit)

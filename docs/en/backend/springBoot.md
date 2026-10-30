@@ -1,9 +1,10 @@
 ---
 isTimeLine: true
 sticky: 2
-title: Spring Boot Principles Explained
+title: Spring Boot Auto-Configuration and Startup Process
+description: Auto-configuration registration and filtering mechanisms, condition annotation ordering, key extension points in the startup process, and troubleshooting common non-activation issues after the Spring Boot 2.x to 3.x auto-configuration registration file change.
 date: 2023-07-15
-description: An in-depth look at Spring Boot's core principles—auto-configuration, the startup process, and how core annotations work—offering advanced developers comprehensive technical insight.
+updated: 2026-10-31
 tags:
 - Spring Boot
 - Java
@@ -15,20 +16,21 @@ categories:
 head:
 - - meta
   - name: keywords
-    content: Spring Boot,Auto-configuration,Conditional Configuration,Startup Process,Annotation-driven
-translatedFrom: 2734e39cb7cb79c5
+    content: Spring Boot,Auto-configuration,Conditional Annotations,Startup Process,AutoConfiguration.imports,Spring Boot 3
+translatedFrom: b4824dc52db665d6
 ---
-# In-Depth Analysis of Spring Boot Principles
+## The Four Stages of Auto-Configuration
 
-As a framework that simplifies Spring application development, Spring Boot embodies many ingenious design principles. This article explores the core principles of Spring Boot in depth, including auto-configuration, the startup process, and how core annotations work, providing senior developers with comprehensive technical insight.
+Spring Boot's "zero configuration" is the result of four steps chained together:
 
-## 1. Principles of Auto-Configuration
+1. `@EnableAutoConfiguration` on `@SpringBootApplication` triggers the import
+2. `AutoConfigurationImportSelector` reads all candidate auto-configuration classes
+3. The `@Conditional` family of annotations filters out those that do not meet the conditions
+4. The remaining ones are registered as bean definitions and then instantiated by the container
 
-Auto-configuration is one of the most core features of Spring Boot, and it greatly simplifies the application configuration process.
+When troubleshooting "auto-configuration not taking effect", checking each stage in this order is much faster than guessing from logs.
 
-### 1.1 The @EnableAutoConfiguration Annotation
-
-The magic of auto-configuration begins with the `@EnableAutoConfiguration` annotation. Through `@Import`, this annotation introduces `AutoConfigurationImportSelector`, which is responsible for loading auto-configuration classes.
+## 1. What `@EnableAutoConfiguration` Does
 
 ```java
 @Target(ElementType.TYPE)
@@ -38,135 +40,144 @@ The magic of auto-configuration begins with the `@EnableAutoConfiguration` annot
 @AutoConfigurationPackage
 @Import(AutoConfigurationImportSelector.class)
 public @interface EnableAutoConfiguration {
-    // ...
 }
 ```
 
-### 1.2 Conditional Configuration
+The key is `@Import(AutoConfigurationImportSelector.class)`: it implements `DeferredImportSelector` and is processed only at the very end, so **auto-configuration classes are always registered after the user's own configuration classes**.
 
-Spring Boot extensively uses the `@Conditional` annotation and its variants (such as `@ConditionalOnClass`, `@ConditionalOnMissingBean`, etc.) to implement conditional configuration.
+This ordering determines overriding behavior: user-declared `@Bean`s enter the container first; when `@ConditionalOnMissingBean` in auto-configuration later checks and finds they already exist, it skips. So "why does my Bean override auto-configuration" and "why did auto-configuration not take effect" are actually two sides of the same mechanism.
+
+### 1.1 Where Candidate Configuration Classes Come From (Key Difference Between 2.x and 3.x)
+
+| Version | Registration File |
+|---|---|
+| Spring Boot 2.x | `META-INF/spring.factories`, key is `org.springframework.boot.autoconfigure.EnableAutoConfiguration` |
+| Spring Boot 3.x | `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`, one class name per line |
+
+If a 3.x project still uses the 2.x `spring.factories` approach, auto-configuration **silently does not take effect**—there is no error, only missing beans. This is the most common problem when upgrading or building a custom starter.
+
+Note that `spring.factories` itself is not deprecated; extension points such as `ApplicationListener` and `EnvironmentPostProcessor` are still registered through it. Only auto-configuration classes have moved.
+
+### 1.2 Conditional Annotations and Activation Order
 
 ```java
-@Configuration
+@AutoConfiguration
 @ConditionalOnClass(DataSource.class)
 public class DataSourceAutoConfiguration {
+
     @Bean
     @ConditionalOnMissingBean
     public DataSource dataSource() {
-        // 配置数据源
+        // ...
     }
 }
 ```
 
-### 1.3 The Auto-Configuration Loading Process
+Common conditional annotations:
 
-1. Scan the `META-INF/spring.factories` file on the classpath
-2. Load the configuration classes corresponding to the `org.springframework.boot.autoconfigure.EnableAutoConfiguration` key in the file
-3. Filter the configuration classes that meet the conditions (based on `@Conditional` annotations)
-4. Apply the filtered configurations
+| Annotation | Meaning |
+|---|---|
+| `@ConditionalOnClass` | Takes effect only when the specified class exists on the classpath |
+| `@ConditionalOnMissingBean` | Takes effect only when no bean of that type exists in the container |
+| `@ConditionalOnProperty` | Takes effect only when the configuration property matches |
+| `@ConditionalOnWebApplication` | Takes effect only in a web application |
 
-## 2. Spring Boot Startup Process
+The evaluation of `@ConditionalOnMissingBean` depends on **currently registered bean definitions**, so the order between auto-configuration classes directly affects the result. Use these three annotations to control order:
 
-The Spring Boot startup process is complex and precise, and it mainly includes the following steps:
-
-1. Create the `SpringApplication` object
-2. Run `SpringApplication`
-   - Prepare the Environment
-   - Create the ApplicationContext
-   - Refresh the ApplicationContext
-   - Execute runners
-
-### 2.1 Startup Flowchart
-
-```mermaid
-graph TD
-    A[创建 SpringApplication] --> B[运行 SpringApplication]
-    B --> C[准备 Environment]
-    C --> D[创建 ApplicationContext]
-    D --> E[刷新 ApplicationContext]
-    E --> F[执行 Runners]
+```java
+@AutoConfiguration(after = DataSourceAutoConfiguration.class)
+@AutoConfiguration(before = JpaAutoConfiguration.class)
+@AutoConfigureOrder(Ordered.HIGHEST_PRECEDENCE)  // 数值越小越早
 ```
 
-### 2.2 Key Source Code Analysis
+If two auto-configuration classes both declare a bean of the same type and neither adds `@ConditionalOnMissingBean`, the result depends on order and can easily become a startup error or behavior that drifts across versions.
 
-Below is a simplified version of the `run` method of `SpringApplication`, showing the main startup steps:
+## 2. Startup Flow
+
+Main flow of `SpringApplication.run()` (Spring Boot 3.x):
 
 ```java
 public ConfigurableApplicationContext run(String... args) {
-    // 1. 创建并启动计时器
-    StopWatch stopWatch = new StopWatch();
-    stopWatch.start();
-    
-    ConfigurableApplicationContext context = null;
+    StartupInfo startupInfo = StartupInfo.getStarted();
     try {
-        // 2. 准备环境
-        ConfigurableEnvironment environment = prepareEnvironment(listeners, applicationArguments);
-        
-        // 3. 创建 ApplicationContext
-        context = createApplicationContext();
-        
-        // 4. 刷新 ApplicationContext
-        refreshContext(context);
-        
-        // 5. 执行 Runners
-        callRunners(context, applicationArguments);
+        // 1. 创建 BootstrapContext（3.x 新增，供 AOT / 懒加载使用）
+        // 2. 准备 Environment：加载配置、触发 EnvironmentPostProcessor
+        // 3. 打印 Banner、创建 ApplicationContext
+        // 4. prepareContext：执行 ApplicationContextInitializer、注册主类 Bean 定义
+        // 5. refreshContext：调用 AbstractApplicationContext.refresh()，创建单例 Bean
+        // 6. callRunners：执行 ApplicationRunner / CommandLineRunner
     } catch (Throwable ex) {
         handleRunFailure(context, ex, listeners);
+        throw new IllegalStateException(ex);
     }
-    
-    // 6. 停止计时并返回 context
-    stopWatch.stop();
-    return context;
 }
 ```
 
-## 3. Analysis of Core Annotations
+Key points:
 
-Spring Boot makes extensive use of annotations to simplify configuration and development. The following are some core annotations and how they work:
+- **During the Environment preparation phase**, `EnvironmentPostProcessor` can be used to dynamically inject configuration (encrypted configuration and configuration centers hook in here)
+- **`refresh()` is when singleton beans are actually created**; `@PostConstruct`, `InitializingBean`, and `ContextRefreshedEvent` all occur during or after this
+- **`ApplicationRunner` and `CommandLineRunner` are executed in a mixed order according to `@Order`**, not one type fully before the other
+- Since 2.6, circular references are prohibited by default. When an old project fails to start with `BeanCurrentlyInCreationException`, `spring.main.allow-circular-references=true` only stops the bleeding; the cycle is still there
 
-### 3.1 @SpringBootApplication
+### 2.1 How to Locate Startup Time Consumption
 
-This is a composite annotation, equivalent to the combination of `@Configuration`, `@EnableAutoConfiguration`, and `@ComponentScan`.
+```yaml
+management:
+  endpoint:
+    startup:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: startup
+```
+
+After adding `spring-boot-starter-actuator`, access `/actuator/startup` to get the time consumed by each startup step; this is more convenient than scattering `System.nanoTime()` calls everywhere.
+
+## 3. Core Annotations
+
+### `@SpringBootApplication`
 
 ```java
-@Target(ElementType.TYPE)
-@Retention(RetentionPolicy.RUNTIME)
-@Documented
-@Inherited
 @SpringBootConfiguration
 @EnableAutoConfiguration
 @ComponentScan(excludeFilters = {
     @Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class),
-    @Filter(type = FilterType.CUSTOM, classes = AutoConfigurationExcludeFilter.class) })
+    @Filter(type = FilterType.CUSTOM, classes = AutoConfigurationExcludeFilter.class)
+})
 public @interface SpringBootApplication {
-    // ...
 }
 ```
 
-### 3.2 @Configuration
+Equivalent to a combination of three annotations, and also supports attributes such as `scanBasePackages` and `exclude` to override default behavior.
 
-Marks a class as a configuration class, equivalent to an XML configuration file.
+### Proxy Semantics of `@Configuration`
 
-### 3.3 @Bean
+`@Configuration(proxyBeanMethods = true)` (the default) generates a subclass with CGLIB, ensuring that calling the same `@Bean` method multiple times returns the same instance. When set to `false`, no proxy is generated, and direct calls between methods really execute the method body multiple times—this is a common reason for "I clearly wrote `@Bean`, but it creates a new one every time".
 
-Marks a method as producing a Bean object to be managed by the Spring container.
-
-### 3.4 @Conditional
-
-The core annotation for conditional configuration, which determines whether to create a certain Bean or enable a certain configuration based on specific conditions.
+The difference between `@Configuration` and `@Component` lies in this proxy layer: the latter does not have it.
 
 ## 4. Practical Tips
 
-1. **Custom Auto-Configuration**: Create your own `@Configuration` class and register it in the `META-INF/spring.factories` file.
+1. **Custom starter**: In 3.x, write auto-configuration classes to `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`, and annotate the class with `@AutoConfiguration` rather than plain `@Configuration`
+2. **Exclude a single auto-configuration**: `@SpringBootApplication(exclude = DataSourceAutoConfiguration.class)`, or the configuration property `spring.autoconfigure.exclude`
+3. **View active auto-configurations**: start with `--debug`, and the logs will print `Positive matches` / `Negative matches`; the latter includes the specific reason for non-matching
+4. **Configuration priority (low to high)**: `application.yml` → profile-specific file → environment variables → command-line arguments
+5. **Custom Banner**: `resources/banner.txt`
 
-2. **Exclude Auto-Configuration**: Use `@EnableAutoConfiguration(exclude = {DataSourceAutoConfiguration.class})` to exclude specific auto-configurations.
+## 5. Common Failure Reference
 
-3. **Custom Banner**: Create a `banner.txt` file in the `resources` directory to customize the startup banner.
+| Symptom | Common Cause |
+|---|---|
+| Auto-configuration not loaded at all | 3.x project still uses `spring.factories` |
+| Auto-configuration loaded but bean does not exist | Condition not met; use `--debug` to see the reason in `Negative matches` |
+| Bean intended to override did not override successfully | Different method names cause two instances to coexist, or the auto-configuration class lacks `@ConditionalOnMissingBean` |
+| Startup reports circular dependency | 2.6+ prohibits by default; find the dependency cycle rather than disabling the check |
+| Startup slow but cannot see where | Enable the actuator startup endpoint to view step time consumption |
 
-4. **Configuration File Priority**: Understand the priority order of `application.properties`, `application.yml`, and external configurations.
+## References
 
-5. **Use Actuator**: Integrate Spring Boot Actuator to monitor and manage the application.
-
-## Conclusion
-
-Through core principles such as auto-configuration, conditional configuration, and annotation-driven development, Spring Boot greatly simplifies the Spring application development process. A deep understanding of these principles not only helps you use Spring Boot better but also enables you to quickly locate and resolve issues when problems arise. As a senior developer, mastering these principles will enable you to customize and optimize Spring Boot applications more flexibly.
+- [Official Spring Boot Auto-Configuration Documentation](https://docs.spring.io/spring-boot/reference/using/auto-configuration.html)
+- [Spring Boot 3.0 Migration Guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-3.0-Migration-Guide)
+- [Spring Framework: Container Extension Points](https://docs.spring.io/spring-framework/reference/core/beans/factory-extension.html)
