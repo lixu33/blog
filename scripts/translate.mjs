@@ -27,6 +27,19 @@ const API = process.env.TRANSLATE_API || 'http://127.0.0.1:3002/v1/messages'
 const KEY = process.env.NEW_API_KEY
 const MODEL = process.env.TRANSLATE_MODEL || 'deepseek-v4.1-flash'
 const CONCURRENCY = Number(process.env.TRANSLATE_CONCURRENCY || 3)
+// 固定译法表：同一个中文标签/分类必须每次翻成同一个英文词，否则标签会分裂
+// （曾经 开源工具 → Open-source tools / Open source tools，个人助理 → Personal assistant / Personal Assistant）
+const TAG_GLOSSARY = {
+  开源工具: 'Open-source tools',
+  个人助理: 'Personal assistant',
+  容器化技术: 'Containerization technology',
+  微服务: 'Microservices',
+  分布式系统: 'Distributed Systems',
+  流处理: 'Stream processing',
+  源码分析: 'Source Code Analysis',
+  自我进化: 'Self-Evolution',
+  智能体: 'AI Agent'
+}
 const MAX_CHUNK = Number(process.env.TRANSLATE_MAX_CHUNK || 3500)
 
 const args = process.argv.slice(2)
@@ -106,14 +119,41 @@ async function callModel(prompt, maxTokens = 8000) {
   throw lastErr
 }
 
-/** 抽出围栏代码块，换成占位符 */
+/** 抽出围栏代码块，换成占位符。
+ * 用行扫描状态机而不是一条正则：文章里常有「markdown 示例里再套 ``` 代码块」，
+ * 非贪婪正则会在内层 ``` 提前闭合，导致缩进围栏被吞、译文结构错乱（TOC 里冒出中文标题）。 */
 function protectCode(body) {
+  const lines = body.split('\n')
   const blocks = []
-  const out = body.replace(/^([ \t]*)(```+|~~~+)[^\n]*\n[\s\S]*?\n\1\2[^\n]*$/gm, (m) => {
-    blocks.push(m)
-    return `⟦CODE_${blocks.length - 1}⟧`
-  })
-  return { text: out, blocks }
+  const out = []
+  let i = 0
+  while (i < lines.length) {
+    const open = lines[i].match(/^([ \t]*)(```+|~~~+)/)
+    if (!open) {
+      out.push(lines[i])
+      i++
+      continue
+    }
+    const indent = open[1]
+    const fence = open[2]
+    let close = -1
+    for (let j = i + 1; j < lines.length; j++) {
+      const c = lines[j].match(/^([ \t]*)(```+|~~~+)\s*$/)
+      if (c && c[1] === indent && c[2][0] === fence[0] && c[2].length >= fence.length) {
+        close = j
+        break
+      }
+    }
+    if (close === -1) {
+      out.push(lines[i])
+      i++
+      continue
+    }
+    blocks.push(lines.slice(i, close + 1).join('\n'))
+    out.push(`⟦CODE_${blocks.length - 1}⟧`)
+    i = close + 1
+  }
+  return { text: out.join('\n'), blocks }
 }
 
 function restoreCode(text, blocks) {
@@ -298,7 +338,7 @@ async function translateOne(file) {
       for (let i = 1; i < block.length; i++) {
         const m = block[i].match(/^(\s*-\s*)(.+)$/)
         if (!m || !/[\u4e00-\u9fff]/.test(m[2])) continue
-        block[i] = m[1] + yamlScalar(await translateField(m[2]))
+        block[i] = m[1] + yamlScalar(TAG_GLOSSARY[m[2].trim()] ?? (await translateField(m[2])))
       }
       lines.splice(span.start, span.end - span.start, ...block)
     }

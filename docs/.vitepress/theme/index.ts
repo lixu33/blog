@@ -123,6 +123,51 @@ function syncOml2dText(themeConfig: any, locale: string) {
   })
 }
 
+/** 主题里硬编码的中文 UI 文案 → 英文（没有配置项，只能客户端改） */
+const EN_EXACT_TEXT: Record<string, string> = {
+  收起: 'Show less',
+  评论: 'Comment',
+  上一组文章: 'Previous group',
+  下一组文章: 'Next group',
+  清空并返回: 'Clear and go back',
+  时间线页面: 'Timeline'
+}
+
+function patchHardcodedZhUi() {
+  if (typeof document === 'undefined') return
+  // 只在英文站生效：VitePress 会把 locale 写进 <html lang>
+  if (!document.documentElement.lang?.startsWith('en')) return
+
+  // 首页标签的展开/收起：文案里带数量，单独处理
+  document.querySelectorAll('.card.tags .expand-btn span').forEach((el) => {
+    const text = (el.textContent || '').trim()
+    const withCount = text.match(/^展开全部\s*(\d+)\s*个标签$/)
+    if (withCount) {
+      el.textContent = `Show all ${withCount[1]} tags`
+      return
+    }
+    if (text === '收起') el.textContent = 'Show less'
+  })
+
+  // 评论区浮动按钮
+  document.querySelectorAll('.comment-btn-wrapper .text').forEach((el) => {
+    if ((el.textContent || '').trim() === '评论') el.textContent = 'Comment'
+  })
+
+  // 其余精确文案：可见文本、title、aria-label
+  document.querySelectorAll('[title], [aria-label]').forEach((el) => {
+    for (const attr of ['title', 'aria-label']) {
+      const v = el.getAttribute(attr)
+      if (v && EN_EXACT_TEXT[v.trim()]) el.setAttribute(attr, EN_EXACT_TEXT[v.trim()])
+    }
+  })
+
+  // footer 里主题色图标的 <svg><title>主题</title>（hover 提示）
+  document.querySelectorAll('svg > title').forEach((el) => {
+    if ((el.textContent || '').trim() === '主题') el.textContent = 'Theme'
+  })
+}
+
 const Layout = defineComponent({
   setup(_, { slots }) {
     const { localeIndex, theme } = useData()
@@ -177,6 +222,25 @@ const Layout = defineComponent({
 
     // 切语言：实例不动，只刷新文案
     watch(localeIndex, (next) => syncOml2dText(theme.value, next))
+
+    // 主题把几处 UI 文案硬编码成中文，且没有 i18n 配置项，英文站只能在客户端改写。
+    // 只在 en 下改，中文站原样。
+    onMounted(() => {
+      let scheduled = false
+      const run = () => {
+        scheduled = false
+        if (localeIndex.value !== 'en') return
+        patchHardcodedZhUi()
+      }
+      patchHardcodedZhUi() // 走一次，处理首屏已渲染的部分
+      const observer = new MutationObserver(() => {
+        if (scheduled) return
+        scheduled = true
+        setTimeout(run, 50)
+      })
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+      watch(localeIndex, () => setTimeout(run, 0))
+    })
 
     return () => [h(BlogTheme.Layout, { key: localeIndex.value }, slots)]
   }

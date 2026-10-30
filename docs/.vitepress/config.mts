@@ -32,6 +32,16 @@ const navZH: DefaultTheme.NavItem[] = [
   { text: '首页', link: '/' },
   { text: '时间线', link: '/timeline' },
   {
+    text: '分类',
+    items: [
+      { text: 'DevOps 运维', link: '/devops/' },
+      { text: '后端技术', link: '/backend/' },
+      { text: '前端技术', link: '/frontend/' },
+      { text: '人工智能', link: '/ai/' },
+      { text: '信息安全', link: '/security/' }
+    ]
+  },
+  {
     text: '个人链接',
     items: [
       { text: 'Lobe-Chat', link: 'https://lobe.lixu.dev' },

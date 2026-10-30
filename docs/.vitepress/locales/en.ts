@@ -9,7 +9,10 @@ export const themeEN = defineLocaleConfig({
     empty: 'No articles yet'
   },
   homeTags: {
-    title: '🏷️ Tags'
+    title: '🏷️ Tags',
+    // 与中文站一致：超过 32 个标签折叠，按热度降序
+    limit: 32,
+    sort: 'desc'
   },
   // 列表/推荐卡片的相对时间（默认是中文“刚刚/分钟前”，这里换成英文）
   formatShowDate: {

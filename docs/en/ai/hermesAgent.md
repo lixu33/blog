@@ -7,7 +7,7 @@ tags:
 - AI Agent
 - Open-source tools
 - Self-Evolution
-- Personal Assistant
+- Personal assistant
 categories:
 - Artificial Intelligence
 - AI

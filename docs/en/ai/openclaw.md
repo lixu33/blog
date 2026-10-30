@@ -5,7 +5,7 @@ description: OpenClaw is an open-source, 24/7 online AI personal assistant that 
 date: 2026-01-26
 tags:
 - AI Agent
-- Open source tools
+- Open-source tools
 - Automation
 - Personal assistant
 categories:
