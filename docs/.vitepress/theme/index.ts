@@ -178,6 +178,20 @@ function patchHardcodedZhUi() {
   })
 }
 
+/** 给正文里的表格套一层可横向滚动的容器。
+ * 手机窄屏下多列表格会被压成一字一行，套 wrapper 后可以左右滑动。 */
+function wrapTables() {
+  if (typeof document === 'undefined') return
+  document.querySelectorAll('.vp-doc table').forEach((table) => {
+    const parent = table.parentElement
+    if (!parent || parent.classList.contains('table-wrap')) return
+    const wrapper = document.createElement('div')
+    wrapper.className = 'table-wrap'
+    parent.insertBefore(wrapper, table)
+    wrapper.appendChild(table)
+  })
+}
+
 /** 404 页：VitePress 只生成一个 404.html（lang 跟站点，全中文），
  * 英文站访问不存在的路径会落到同一个页面，这里按 URL 前缀补英文文案。 */
 const NOT_FOUND_EN = {
@@ -267,10 +281,12 @@ const Layout = defineComponent({
       let scheduled = false
       const run = () => {
         scheduled = false
+        wrapTables() // 表格横向滚动，中英都生效
         patchNotFound() // 404 页：按 URL 前缀决定语言，与 locale 无关
         if (localeIndex.value !== 'en') return
         patchHardcodedZhUi()
       }
+      wrapTables()
       patchNotFound()
       patchHardcodedZhUi() // 走一次，处理首屏已渲染的部分
       const observer = new MutationObserver(() => {

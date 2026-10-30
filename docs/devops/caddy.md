@@ -19,6 +19,10 @@ head:
     content: Caddy, Caddyfile, 自动 HTTPS, 反向代理, caddy validate, caddy reload, encode gzip
 ---
 
+从 Nginx 换到 Caddy 的人，多半是被证书续期折腾过。Caddy 把它做成了默认行为，代价是它的指令集取决于编译时带了哪些模块——这一点让不少照着教程操作的人卡在第一步。
+
+下面按安装、基础配置、自动 HTTPS、反向代理的顺序走一遍，最后列出常见报错。
+
 ## Caddy 与其他 Web 服务器的差别在哪
 
 Caddy 用 Go 编写，和 Nginx/Apache 最大的区别是**默认行为**：

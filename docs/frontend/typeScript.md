@@ -18,6 +18,10 @@ head:
     content: TypeScript, ES6, tsconfig, strict 模式, 类型收窄, 泛型, 箭头函数
 ---
 
+在一个项目里引入 TypeScript，头几周通常很舒服，几个月后开始有人抱怨类型写不完。
+
+这篇不铺语法大全，只讲两件事：哪些编译选项值得一开始就开，哪些写法在真实项目里最容易出事。
+
 ## TypeScript 带来什么，代价是什么
 
 TypeScript 在 JavaScript 之上加了一层**编译期**类型系统：

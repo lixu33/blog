@@ -35,3 +35,25 @@ html[theme].dark .VPHome .text {
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
 }
 
+
+/* 表格在窄屏横向滚动：否则多列表格会被压成一字一行（手机上尤其明显） */
+.vp-doc .table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 16px 0;
+}
+.vp-doc .table-wrap > table {
+  margin: 0;
+}
+@media (max-width: 768px) {
+  .vp-doc .table-wrap > table {
+    min-width: 520px;   /* 小于此宽度就滚动，而不是把列挤扁 */
+  }
+  .vp-doc .table-wrap::-webkit-scrollbar {
+    height: 4px;
+  }
+  .vp-doc .table-wrap::-webkit-scrollbar-thumb {
+    background: var(--vp-c-divider);
+    border-radius: 2px;
+  }
+}

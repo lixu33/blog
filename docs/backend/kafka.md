@@ -18,6 +18,10 @@ head:
     content: Kafka,分区副本,ISR,KRaft,acks,min.insync.replicas,消费组 rebalance,幂等生产者
 ---
 
+Kafka 的文档和源码解析都不缺，真正让人出事故的往往是几个配置的搭配：`acks` 设了 `all` 却没人管 `min.insync.replicas`，或者单批处理慢一点就反复 rebalance。
+
+这篇从存储和复制机制讲起，落到这些配置为什么必须那样配。
+
 ## 先记住三件事
 
 1. **顺序只在分区内成立**——需要全局有序就得单分区，代价是没有并行度

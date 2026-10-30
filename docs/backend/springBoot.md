@@ -19,6 +19,10 @@ head:
     content: Spring Boot,自动配置,条件注解,启动流程,AutoConfiguration.imports,Spring Boot 3
 ---
 
+「为什么我的配置没生效」——Spring Boot 的问题大半能归到自动配置的条件判断上。
+
+它没有魔法，只是把四个步骤串起来执行。顺序搞清楚，排查就变成了逐段确认，而不是翻日志猜。
+
 ## 自动配置的四个环节
 
 Spring Boot 的「零配置」是四步串起来的结果：
