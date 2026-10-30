@@ -4,8 +4,6 @@ export const themeEN = defineLocaleConfig({
   author: 'Ray',
   hotArticle: {
     title: '🔥 Hot Articles',
-    nextText: 'Next',
-    pageSize: 3,
     empty: 'No articles yet'
   },
   homeTags: {
