@@ -103,6 +103,17 @@ export const themeEN = defineLocaleConfig({
     menus: {
       items: [
         {
+          icon: 'mdi:party-popper',
+          label: 'Play',
+          // 动作表内联：配置函数会被序列化到客户端，闭包外的变量不会跟着过去
+          onClick: (widget: { l2d?: { playMotion: (group: string) => void } }) => {
+            const groups = [
+              'aidale', 'selfie', 'selfieQuick', 'ketchup', 'openLid', 'bubble', 'splash'
+            ]
+            widget.l2d?.playMotion(groups[Math.floor(Math.random() * groups.length)])
+          }
+        },
+        {
           icon: 'mdi:bed',
           label: 'Rest',
           onClick: (widget: { sleep: () => void }) => widget.sleep()

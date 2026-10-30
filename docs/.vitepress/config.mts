@@ -164,6 +164,13 @@ export default defineConfig({
   },
   vite: {
     plugins: [pagefindPlugin()],
+    css: {
+      preprocessorOptions: {
+        // sass 1.107 会对 Vite 默认走的 legacy JS API 抛弃用警告（Dart Sass 2.0 将移除）。
+        // 项目只有一个 style.scss，切到 modern API 编译结果一致，警告随之消失。
+        scss: { api: 'modern' },
+      },
+    },
   },
   // 每页动态注入 canonical / JSON-LD 结构化数据 / 文章级 og 标签
   // 参考：https://vitepress.dev/reference/site-config#transformhead

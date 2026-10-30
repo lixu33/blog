@@ -44,6 +44,48 @@ if (typeof window !== 'undefined') {
 // 另需兜底清理：库的 destroy() 是 `await transitionend` 之后才 removeChild，
 // 该事件不触发时旧节点会残留（隐藏但占着 WebGL 上下文）。
 // 切换瞬间先记下旧节点，稍后如果还连着就强制移除。
+// 记住「休息」意图：切语言会让 BlogApp 整体重挂载、看板娘被 destroy 后重建，
+// 睡眠状态随之丢失（表现为：点了休息，切一下中英文，她又冒出来了）。
+// 这里只记录意图，重建完成后把新看板娘的休息按钮点一下，让她继续睡。
+const REST_LABELS = new Set(['休息', 'Rest'])
+let wantsRest = false
+if (typeof window !== 'undefined') {
+  document.addEventListener(
+    'click',
+    (e) => {
+      const el = e.target as HTMLElement | null
+      if (!el || !el.closest) return
+      // 菜单按钮的 title 就是 MenuItem.label
+      const menuBtn = el.closest('button[title]') as HTMLElement | null
+      if (menuBtn && REST_LABELS.has(menuBtn.title)) {
+        wantsRest = true
+        return
+      }
+      // 「正在休息」状态条（l2d-widget 写死 z-index: 9998）点一下就醒
+      if (el.closest('div[style*="z-index: 9998"]')) wantsRest = false
+    },
+    true
+  )
+}
+
+// 重建后把休息状态补回去：轮询等待新 widget 的菜单挂好（最多 ~10s），找到就点。
+// 不能只等固定时长——模型是动态 import + fetch 的，慢网下建得比 2.5s 晚。
+const restoreRest = () => {
+  if (!wantsRest) return
+  let tries = 0
+  const timer = setInterval(() => {
+    const btn = Array.from(
+      document.querySelectorAll('body > div button[title]')
+    ).find((b) => REST_LABELS.has((b as HTMLElement).title)) as HTMLElement | undefined
+    if (btn) {
+      btn.click()
+      clearInterval(timer)
+      return
+    }
+    if (++tries > 40) clearInterval(timer)
+  }, 250)
+}
+
 const Layout = defineComponent({
   setup(_, { slots }) {
     const { localeIndex } = useData()
@@ -56,6 +98,7 @@ const Layout = defineComponent({
       // 退场过渡是 1500ms，留足余量；已正常移除的节点 isConnected 为 false，会被跳过
       setTimeout(() => {
         ;[...stale, ...staleBars].forEach((el) => el.isConnected && el.remove())
+        restoreRest()
       }, 2500)
     })
     return () => [

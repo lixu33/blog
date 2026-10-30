@@ -123,6 +123,22 @@ const blogTheme = getThemeConfig({
     menus: {
       items: [
         {
+          icon: 'mdi:party-popper',
+          label: '玩耍',
+          // l2d 的 playMotion(group) 省略 index 时随机播该组动作（dist/index.js#playMotion）。
+          // 这套模型除 idle 外还有 7 个动作组（见 c_0120.model3.json 的 Motions：
+          // aidale / selfie / selfieQuick / ketchup / openLid / bubble / splash），
+          // 默认只循环 idle，所以这里给个按钮手动触发一下。
+          // 注意：VitePress 把配置里的函数 toString 后在客户端重建，闭包外的常量会丢，
+          // 所以动作表必须写在函数体内。
+          onClick: (widget: { l2d?: { playMotion: (group: string) => void } }) => {
+            const groups = [
+              'aidale', 'selfie', 'selfieQuick', 'ketchup', 'openLid', 'bubble', 'splash'
+            ]
+            widget.l2d?.playMotion(groups[Math.floor(Math.random() * groups.length)])
+          }
+        },
+        {
           icon: 'mdi:bed',
           label: '休息',
           onClick: (widget: { sleep: () => void }) => widget.sleep()
