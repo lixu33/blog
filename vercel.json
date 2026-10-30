@@ -74,5 +74,17 @@
                 }
             ]
         }
+    ],
+    "redirects": [
+        {
+            "source": "/security/rsa",
+            "destination": "/security/aes",
+            "permanent": true
+        },
+        {
+            "source": "/en/security/rsa",
+            "destination": "/en/security/aes",
+            "permanent": true
+        }
     ]
 }
