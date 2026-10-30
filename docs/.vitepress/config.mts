@@ -1,5 +1,15 @@
 import { defineConfig, type DefaultTheme } from 'vitepress'
 import { pagefindPlugin } from 'vitepress-plugin-pagefind'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// 构建期用来判断「另一种语言的同名页面是否存在」，用于输出 hreflang
+const DOCS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const toPublicUrl = (rel) => {
+  const p = rel.replace(/\.md$/, '').replace(/(^|\/)index$/, '$1')
+  return p === '' ? siteUrl : `${siteUrl}/${p}`
+}
 
 // 导入主题的配置
 import { blogTheme } from './blog-theme'
@@ -67,20 +77,36 @@ export default defineConfig({
     // 时间线收录是因为它链着全部文章，是站内最好的爬取枢纽。
     // 排除：分类目录页（/ai/ 等薄列表页）与英文时间线（空页）。
     transformItems: (items) =>
-      items.filter((item) => {
-        let url = item.url
-        // VitePress 生成 item.url：首页为空串、目录页为 "ai/"、文章页为 "ai/xxx"，统一规范化
-        if (url.startsWith('http')) url = new URL(url).pathname
-        const path = url.replace(/^\/+|\/+$/g, '')
-        // 首页（'' 与 'en'）：权威入口，也是 Google 发现全站内链的主路径
-        if (path === '' || path === 'en') return true
-        // 中文时间线：链着全部 17 篇文章，是最好的爬取枢纽，值得收录
-        if (path === 'timeline') return true
-        // 英文时间线：英文文章已由 i18n 流水线补齐，同样是英文站的爬取枢纽
-        if (path === 'en/timeline') return true
-        if (url.endsWith('/')) return false // 分类目录页（index.md → "ai/"）：薄列表页，Google 通常不收
-        return true
-      }),
+      items
+        .filter((item) => {
+          let url = item.url
+          // VitePress 生成 item.url：首页为空串、目录页为 "ai/"、文章页为 "ai/xxx"，统一规范化
+          if (url.startsWith('http')) url = new URL(url).pathname
+          const path = url.replace(/^\/+|\/+$/g, '')
+          // 首页（'' 与 'en'）：权威入口，也是 Google 发现全站内链的主路径
+          if (path === '' || path === 'en') return true
+          // 中文时间线：链着全部 17 篇文章，是最好的爬取枢纽，值得收录
+          if (path === 'timeline') return true
+          // 英文时间线：英文文章已由 i18n 流水线补齐，同样是英文站的爬取枢纽
+          if (path === 'en/timeline') return true
+          if (url.endsWith('/')) return false // 分类目录页（index.md → "ai/"）：薄列表页，Google 通常不收
+          return true
+        })
+        // 给中英互有的页面补 xhtml:link，告诉搜索引擎两个 URL 是同一内容的不同语言
+        .map((item) => {
+          let url = item.url
+          if (url.startsWith('http')) url = new URL(url).pathname
+          const p = url.replace(/^\/+|\/+$/g, '')
+          const isENp = p === 'en' || p.startsWith('en/')
+          const zhPath = isENp ? p.replace(/^en\/?/, '') : p
+          const enPath = isENp ? p : p ? `en/${p}` : 'en'
+          const zhRel = zhPath ? `${zhPath}.md` : 'index.md'
+          const enRel = enPath ? `${enPath}.md` : 'en/index.md'
+          const links = []
+          if (fs.existsSync(path.join(DOCS_DIR, zhRel))) links.push({ lang: 'zh-CN', url: toPublicUrl(zhRel) })
+          if (fs.existsSync(path.join(DOCS_DIR, enRel))) links.push({ lang: 'en', url: toPublicUrl(enRel) })
+          return links.length > 1 ? { ...item, links } : item
+        }),
   },
   cleanUrls: true,
   base,
@@ -200,6 +226,23 @@ export default defineConfig({
 
     // 1. canonical：声明当前页权威地址（cleanUrls 下避免重复内容）
     head.push(['link', { rel: 'canonical', href: url }])
+
+    // 1.5 hreflang：告诉搜索引擎中英两版是同一篇文章的两种语言
+    const zhRel = isEN ? rawPath.slice(3) : rawPath
+    const enRel = isEN ? rawPath : `en/${rawPath}`
+    const zhExists = fs.existsSync(path.join(DOCS_DIR, zhRel))
+    const enExists = fs.existsSync(path.join(DOCS_DIR, enRel))
+    if (zhExists) head.push(['link', { rel: 'alternate', hreflang: 'zh-CN', href: toPublicUrl(zhRel) }])
+    if (enExists) head.push(['link', { rel: 'alternate', hreflang: 'en', href: toPublicUrl(enRel) }])
+    // x-default 指向中文原版（没有中文版时才退到英文）
+    if (zhExists) head.push(['link', { rel: 'alternate', hreflang: 'x-default', href: toPublicUrl(zhRel) }])
+    else if (enExists) head.push(['link', { rel: 'alternate', hreflang: 'x-default', href: toPublicUrl(enRel) }])
+
+    // og:locale / og:locale:alternate
+    head.push(['meta', { property: 'og:locale', content: isEN ? 'en_US' : 'zh_CN' }])
+    if (isEN ? zhExists : enExists) {
+      head.push(['meta', { property: 'og:locale:alternate', content: isEN ? 'zh_CN' : 'en_US' }])
+    }
 
     // 2. 动态 og / twitter 标签（文章页用文章标题与描述，而非站点名）
     head.push(['meta', { property: 'og:title', content: title }])
