@@ -149,10 +149,20 @@ function patchHardcodedZhUi() {
     if (text === '收起') el.textContent = 'Show less'
   })
 
-  // 评论区浮动按钮
+  // 评论区浮动按钮（giscus 懒加载，class 可能随主题版本变，精确选择器没命中时按文本兜底）
+  let patched = 0
   document.querySelectorAll('.comment-btn-wrapper .text').forEach((el) => {
-    if ((el.textContent || '').trim() === '评论') el.textContent = 'Comment'
+    if ((el.textContent || '').trim() === '评论') {
+      el.textContent = 'Comment'
+      patched++
+    }
   })
+  if (!patched) {
+    document.querySelectorAll('body *').forEach((el) => {
+      if (el.children.length || el.closest('.vp-doc')) return
+      if ((el.textContent || '').trim() === '评论') el.textContent = 'Comment'
+    })
+  }
 
   // 其余精确文案：可见文本、title、aria-label
   document.querySelectorAll('[title], [aria-label]').forEach((el) => {
@@ -236,7 +246,8 @@ const Layout = defineComponent({
       const observer = new MutationObserver(() => {
         if (scheduled) return
         scheduled = true
-        setTimeout(run, 50)
+        // 评论按钮是懒加载渲染的，用 microtask 让改写紧跟在插入之后，避免中文闪一下
+        queueMicrotask(run)
       })
       observer.observe(document.body, { childList: true, subtree: true, characterData: true })
       watch(localeIndex, () => setTimeout(run, 0))
