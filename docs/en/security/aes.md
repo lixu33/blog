@@ -1,7 +1,7 @@
 ---
 isTimeLine: true
-title: "AES vs. RSA: How to Choose Between Symmetric and Asymmetric Encryption"
-description: Division of labor between symmetric and asymmetric encryption, key and mode selection, with Java implementation. Focuses on why not to use AES/ECB, where the RSA encryption length limit comes from, and how to build hybrid encryption outside TLS.
+title: "AES vs. RSA: Choosing Between Symmetric and Asymmetric Encryption"
+description: Division of labor between symmetric and asymmetric encryption, key and mode selection, with Java implementation. Focuses on why not to use AES/ECB, where RSA's encryption length limit comes from, and how to build hybrid encryption outside TLS.
 date: 2024-05-21
 updated: 2026-10-31
 tags:
@@ -18,24 +18,24 @@ categories:
 head:
 - - meta
   - name: keywords
-    content: AES,RSA,Symmetric encryption,Asymmetric encryption,AES/GCM,Encryption mode,Java Encryption,Hybrid encryption,Key Management
-translatedFrom: 05cd202de22310d7
+    content: AES,RSA,Symmetric Encryption,Asymmetric encryption,AES/GCM,Encryption mode,Java encryption,Hybrid encryption,Key Management
+translatedFrom: 3eae3bc18b07cb1f
 ---
-# AES and RSA: How to Choose Between Symmetric and Asymmetric Encryption
+# AES vs. RSA: How to Choose Between Symmetric and Asymmetric Encryption
 
-AES and RSA solve different problems: the former encrypts data, the latter encrypts keys. Used separately, neither is complicated; when combined for hybrid encryption, choosing modes and padding is where mistakes easily happen.
+AES and RSA solve different problems: the former encrypts data, the latter encrypts keys. Using them separately isn't complicated, but when combined for hybrid encryption, the choice of mode and padding is easy to get wrong.
 
-Below, I cover selection, AES, RSA, and hybrid encryption in that order.
+Below, I'll cover selection, AES, RSA, and hybrid encryption in that order.
 
 ## The Bottom Line
 
 | Scenario | What to Use | Why |
 |---|---|---|
-| Encrypting large amounts of data (files, fields, message bodies) | AES-256-GCM | Symmetric encryption, high throughput, with authentication |
-| Key exchange, digital signatures, certificates | RSA-2048 or above, or ECDSA/Ed25519 | Asymmetric encryption, can be transmitted publicly |
-| Transmitting large files while preventing man-in-the-middle attacks | Hybrid encryption: RSA/ECDSA negotiates the key, AES encrypts the data | This is how TLS works |
+| Bulk data encryption (files, fields, message bodies) | AES-256-GCM | Symmetric encryption, high throughput, with authentication |
+| Key exchange, digital signatures, certificates | RSA-2048 or higher, or ECDSA/Ed25519 | Asymmetric encryption, can be transmitted publicly |
+| Need to send large files while preventing man-in-the-middle attacks | Hybrid encryption: RSA/ECDSA for key negotiation, AES for data encryption | This is how TLS works |
 
-In one sentence: **asymmetric encryption is responsible for "securely sending the key out," while symmetric encryption is responsible for "actually moving the data."** Directly using RSA to encrypt business data is a common misuse; see the length limit below for the reason.
+In one sentence: **asymmetric encryption is responsible for "securely delivering the key," while symmetric encryption is responsible for "actually moving the data."** Using RSA to directly encrypt business data is a common misuse; see the length limit below for why.
 
 ---
 
@@ -45,11 +45,11 @@ AES (Advanced Encryption Standard) uses the same key for encryption and decrypti
 
 ### 1.1 Encryption Process
 
-1. **Key generation**: Choose a 128-, 192-, or 256-bit key
-2. **Data blocking**: Split the plaintext into 128-bit blocks; pad the final incomplete block according to the padding rule
+1. **Key generation**: Choose a 128, 192, or 256-bit key
+2. **Data blocking**: Split plaintext into 128-bit blocks; pad the final incomplete block according to the padding rules
 3. **Multiple rounds of transformation**: Each round includes SubBytes, ShiftRows, MixColumns, and AddRoundKey
 
-The number of rounds is determined by the key length:
+The number of rounds is determined by key length:
 
 | Key Length | Block Size | Rounds |
 |---|---|---|
@@ -59,18 +59,18 @@ The number of rounds is determined by the key length:
 
 Decryption is the inverse of the above steps: inverse SubBytes, inverse ShiftRows, inverse MixColumns, and AddRoundKey, in reverse order.
 
-### 1.2 Working Modes: ECB Must Not Be Used
+### 1.2 Modes of Operation: ECB Must Not Be Used
 
-AES is only a block cipher; practical encryption must be combined with a working mode. This is the easiest place to make mistakes:
+AES is just a block cipher; actual encryption requires a mode of operation. This is where people most easily get tripped up:
 
 | Mode | Authenticated | Description |
 |---|---|---|
-| ECB | No | **Do not use.** The same plaintext block produces the same ciphertext block; after encrypting an image, its outline is still visible |
-| CBC | No | Requires a random IV, and the IV must not be reused; prevents pattern leakage but not tampering |
-| CTR | No | Turns the block cipher into a stream cipher; the counter likewise must not be reused |
-| GCM | Yes | Recommended default. Verifies integrity while encrypting; the IV should be 96 bits and must never be reused |
+| ECB | No | **Do not use**. Identical plaintext blocks produce identical ciphertext blocks; outlines remain visible after encrypting images |
+| CBC | No | Requires a random IV, and the IV must not repeat; prevents pattern leakage but not tampering |
+| CTR | No | Turns a block cipher into a stream cipher; likewise, the counter must not be reused |
+| GCM | Yes | Recommended default. Verifies integrity while encrypting; IV should be 96 bits and never reused |
 
-The concrete consequence of using ECB: when encrypting a batch of records with the same structure (for example, ID numbers or amount fields), identical byte blocks appear at the same positions in the ciphertext. An attacker can tell which rows are equal without decrypting anything.
+The concrete consequence of using ECB: when encrypting a batch of records with the same structure (such as ID numbers or amount fields), identical byte blocks appear at the same positions in the ciphertext. An attacker can tell which rows are equal without decrypting anything.
 
 ### 1.3 Java Implementation
 
@@ -118,15 +118,15 @@ public class AesGcmExample {
 
 Key points:
 
-- `AES/GCM/NoPadding` uses no padding; GCM has its own authentication tag
-- The IV must be randomly generated and stored together with the ciphertext (usually prepended to the ciphertext header). **Reusing an IV under the same key directly breaks GCM's security**
+- `AES/GCM/NoPadding` requires no padding; GCM provides its own authentication tag
+- The IV must be randomly generated and stored alongside the ciphertext (typically prepended to the ciphertext header). **Reusing an IV under the same key directly breaks GCM's security**
 - The `AES/ECB/PKCS5Padding` found in old tutorials may run, but it should not appear in new code
 
 ---
 
 ## 2. RSA: Asymmetric Encryption
 
-RSA uses a key pair: the public key encrypts, and the private key decrypts. Security is based on the hardness of integer factorization—given n = p×q, deriving p and q is computationally infeasible.
+RSA uses a key pair: public key for encryption, private key for decryption. Its security is based on the integer factorization problem—given n = p×q, deriving p and q is computationally infeasible.
 
 ### 2.1 Key Generation Process
 
@@ -137,19 +137,19 @@ RSA uses a key pair: the public key encrypts, and the private key decrypts. Secu
 5. Compute d such that d × e ≡ 1 (mod φ(n))
 6. Public key (e, n), private key (d, n)
 
-Encryption: C = M^e mod n; decryption: M = C^d mod n.
+Encryption: C = M^e mod n; Decryption: M = C^d mod n.
 
-### 2.2 Key Length and a Hard Upper Limit
+### 2.2 Key Length and a Hard Limit
 
 | Key Length | Status |
 |---|---|
 | 1024 bits | No longer secure; do not use for new systems |
 | 2048 bits | Current minimum requirement |
-| 3072/4096 bits | Higher security margin, slower computation |
+| 3072/4096 bits | Greater security margin, slower computation |
 
-**Key limitation**: The length of data RSA can encrypt is constrained by the key length. For example, with a 2048-bit key and PKCS#1 v1.5 padding, a single block can hold at most 245 bytes (256 bytes of key capacity minus 11 bytes of padding overhead). Anything larger must be split into blocks, and block-wise encryption easily introduces padding oracle-type problems.
+**Critical limitation**: The length of data RSA can encrypt is constrained by the key length. For a 2048-bit key with PKCS#1 v1.5 padding, a single block holds at most 245 bytes (256 bytes of key capacity minus 11 bytes of padding overhead). Anything larger must be split into blocks, and block-wise encryption easily introduces padding oracle–type issues.
 
-Therefore, the correct use of RSA is to encrypt a **symmetric key** (around 32 bytes), not business data.
+Therefore, RSA's correct use is to encrypt **symmetric keys** (around 32 bytes), not business data.
 
 ### 2.3 Java Implementation
 
@@ -194,14 +194,14 @@ public class RsaExample {
 
 Key points:
 
-- The "ECB" in `RSA/ECB/...` does not represent a block mode; RSA only processes a single block, and this notation is a historical legacy
+- The "ECB" in `RSA/ECB/...` does not represent a block mode; RSA processes only a single block, and this notation is a historical leftover
 - Use OAEP for padding, not PKCS1Padding (the latter has a padding oracle attack surface)
-- The ciphertext must be Base64- or Hex-encoded before transmission/storage; directly converting binary to a string will lose bytes
-- Signing with a 4096-bit key takes about 4 times as long as with 2048 bits; evaluate this for high-frequency server-side signing scenarios
+- Ciphertext must be Base64 or Hex encoded before transmission/storage; directly converting binary to a string will lose bytes
+- Signing with a 4096-bit key takes about 4 times as long as with 2048-bit; evaluate carefully for high-frequency server-side signing scenarios
 
 ### 2.4 Extracting the Public Key from the Private Key
 
-The PKCS#8 structure of an RSA private key contains the CRT parameters (modulus n, public exponent e, private exponent d, p, q, etc.), so the public key can be reconstructed from the private key:
+The PKCS#8 structure of an RSA private key includes CRT parameters (modulus n, public exponent e, private exponent d, p, q, etc.), so the public key can be reconstructed from the private key:
 
 ```java
 import java.security.KeyFactory;
@@ -224,7 +224,7 @@ RSAPublicKeySpec pubSpec =
 PublicKey publicKey = keyFactory.generatePublic(pubSpec);
 ```
 
-Note: Only CRT-format private keys can do this. If the private key has been stripped down to only (d, n), the public exponent e cannot be recovered.
+Note: Only CRT-format private keys allow this. If the private key has been stripped down to only (d, n), the public exponent e cannot be recovered.
 
 ---
 
@@ -232,11 +232,11 @@ Note: Only CRT-format private keys can do this. If the private key has been stri
 
 TLS is the standard answer:
 
-1. The client and server use RSA or ECDHE to negotiate a session key
+1. The client and server negotiate a session key using RSA or ECDHE
 2. All subsequent traffic is encrypted with AES-GCM
 3. The asymmetric part is used only once during the handshake
 
-The same applies in self-built systems:
+The same applies to self-built systems:
 
 ```
 随机生成 AES-256 密钥 K
@@ -244,21 +244,27 @@ The same applies in self-built systems:
 双方用 K 做 AES-GCM 通信，密钥定期轮换
 ```
 
-The benefit: asymmetric operations are reduced to a minimum (RSA decryption is orders of magnitude slower than AES), and high-volume traffic goes through symmetric encryption.
+The benefits: asymmetric operations are minimized (RSA decryption is orders of magnitude slower than AES), and high-volume traffic goes through symmetric encryption.
 
 ---
 
-## 4. Practical Points
+## 4. Practical Guidelines
 
 | Item | Requirement |
 |---|---|
-| AES mode | Prefer GCM; CBC must use a random IV and must not reuse it |
+| AES mode | Prefer GCM; CBC must use a random IV and never reuse it |
 | IV / Nonce | Regenerate for every encryption, store with the ciphertext, never reuse |
 | RSA padding | OAEP SHA-256, not PKCS1 v1.5 |
-| RSA key | Start at 2048 bits; treat 1024 bits as invalid |
-| Ciphertext encoding | Base64 or Hex; never directly convert binary to a string |
-| Key storage | Do not hard-code in source; use KMS, environment variables, or a key store |
-| Authentication vs encryption | GCM provides built-in integrity checking; CBC requires an additional HMAC |
+| RSA key | 2048 bits minimum; treat 1024 bits as invalid |
+| Ciphertext encoding | Base64 or Hex; never directly convert binary to string |
+| Key storage | Never hardcode in source; use KMS, environment variables, or a keystore |
+| Authentication vs. encryption | GCM provides built-in integrity verification; CBC requires additional HMAC |
+
+## Related Reading
+
+- [JNA: Practices for Calling Native Libraries from Java](/en/backend/jna): Calling native crypto libraries such as OpenSSL
+- [Spring Boot Auto-Configuration and Startup Flow](/en/backend/springBoot): Integrating key configuration and encryption services
+- [Redis Principles and High-Availability Solutions](/en/backend/redis): How to handle sensitive data in caches
 
 ## References
 

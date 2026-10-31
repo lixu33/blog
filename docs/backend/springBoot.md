@@ -182,9 +182,10 @@ public @interface SpringBootApplication {
 
 ## 相关阅读
 
-- [深入 Spring 源码解析](/backend/spring)：容器、AOP 与 Bean 生命周期
+- [Spring 容器、AOP 与声明式事务的实现](/backend/spring)：容器、AOP 与 Bean 生命周期
 - [Docker 从入门到实践](/devops/docker)：应用镜像的构建与运行
 - [Kafka 存储与复制机制](/backend/kafka)：消息驱动的服务与配置
+- [AES 与 RSA：对称与非对称加密怎么选](/security/aes)：配置里的密钥与敏感字段怎么处理
 
 ## 参考
 

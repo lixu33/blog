@@ -1,11 +1,12 @@
 ---
 isTimeLine: true
-title: Netty high-performance network framework
-description: This article provides an in-depth exploration of Netty's core principles, architecture, key components, and performance optimization strategies.
+title: Netty's Event Loop, Pipeline, and Zero-Copy
+description: From the path after a connection is established, this covers EventLoop’s threading model, Pipeline inbound/outbound propagation, ByteBuf read/write indices and pooled allocation, and which copy each of the four zero-copy mechanisms eliminates; plus allocator and write-buffer watermark misconfigurations and troubleshooting.
 date: 2024-06-28
+updated: 2026-10-31
 tags:
 - Netty
-- Network Programming
+- Network programming
 - Java
 - NIO
 categories:
@@ -14,130 +15,52 @@ categories:
 head:
 - - meta
   - name: keywords
-    content: Netty,Asynchronous event-driven,Web application framework,High-performance,Low latency
-translatedFrom: f0a9ada795d99403
+    content: Netty,Asynchronous event-driven,Web application framework,High-performance,Low latency,EventLoop,ChannelPipeline,ByteBuf,zero-copy
+translatedFrom: 2465b73778ef18a4
 ---
-# In-Depth Analysis of Netty Principles: A High-Performance Network Application Framework
+# Netty's Event Loop, Pipeline, and Zero-Copy
 
-## 1. Introduction to Netty
+When writing a service directly with NIO, you have to handle everything yourself: empty polling on the `Selector`, partial and coalesced TCP packets, write-buffer backlog, and connections that break and are left unclosed. Netty folds these into three abstractions—`EventLoop`, `Pipeline`, and `ByteBuf`—at the cost of having to understand its thread model; otherwise, a single database query in `channelRead` will stall hundreds of connections on the entire EventLoop.
 
-Netty is an asynchronous event-driven network application framework for rapidly developing maintainable high-performance protocol servers and clients. It greatly simplifies network programming such as TCP and UDP socket servers.
+Below, we follow the lifecycle of a single connection: first the responsibilities of the components, then the `NioEventLoop` loop, its correspondence to Reactor, and Pipeline event propagation; next, ByteBuf and the four forms of zero-copy; finally, several common configuration mistakes.
 
-## 2. Core Concepts
+## Components and Responsibilities
 
-Before diving into Netty principles, we need to understand several key concepts:
+| Component | Responsibility | Notes |
+|---|---|---|
+| `Channel` | Read/write abstraction for a connection | Implementations such as `NioSocketChannel` |
+| `EventLoop` | A thread that runs I/O and a task queue | One EventLoop can handle multiple Channels |
+| `EventLoopGroup` | Pool that manages EventLoops | Usually split into boss/worker |
+| `ChannelPipeline` | Ordered chain of Handlers | Inbound and outbound directions are opposite |
+| `ByteBuf` | Byte container | Has separate read/write indexes and can be pooled |
 
-- **Channel**: An abstraction of a network socket
-- **EventLoop**: The core abstraction for handling I/O operations
-- **ChannelPipeline**: A chain that handles or intercepts inbound and outbound events
-- **ChannelHandler**: An interface for handling I/O events or intercepting I/O operations
-- **ByteBuf**: An efficient byte container
+`ChannelFuture` carries an asynchronous result; `ChannelPromise` is the writable version used to fill in success or failure within a flow.
 
-## 3. Architecture Design
-
-Netty's architecture design is key to its high performance and flexibility. Below is Netty's core architecture diagram and detailed explanation:
+## 1. Data Flow After a Connection Is Established
 
 ```mermaid
 graph TD
-    A[Client] --> B[Channel]
-    B --> C[ChannelPipeline]
-    C --> D[ChannelHandler]
-    D --> E[EventLoop]
-    E --> F[Thread]
-    G[EventLoopGroup] --> E
-    H[ByteBuf] --> D
-    I[ChannelFuture] --> B
+    A[boss EventLoopGroup] -->|accept| B[NioServerSocketChannel]
+    B --> C[worker EventLoopGroup]
+    C --> D[EventLoop]
+    D --> E[Channel 注册到 Selector]
+    E --> F[ChannelPipeline]
+    F --> G[InboundHandler 链]
+    G --> H[OutboundHandler 链]
 ```
 
-### 3.1 Core Component Analysis
+1. An EventLoop in the boss group handles `OP_ACCEPT` and obtains the new connection.
+2. The new `Channel` is assigned an EventLoop from the worker group and registered with that EventLoop's `Selector`.
+3. Inbound data enters at the head of the Pipeline and passes through `ChannelInboundHandler` instances in order.
+4. `ctx.write()` generates an outbound event, which travels backward from the current Handler toward the tail of the Pipeline and is encoded by `ChannelOutboundHandler` instances before being written out.
 
-1. **Channel**
-   - Represents an abstraction of a network connection
-   - Responsible for network I/O operations such as read, write, connect, bind, etc.
-   - Common implementations: NioSocketChannel, NioServerSocketChannel
+The direction in step 4 is easy to misremember: inbound is head → tail, outbound is tail → head, and it starts from the **current node** rather than from the head. So if you call `ctx.write()` in a Handler somewhere in the middle, it will pass through the preceding outbound Handlers.
 
-2. **ChannelPipeline**
-   - Contains a series of ChannelHandlers
-   - Defines the pipeline for handling inbound and outbound events
-   - Supports dynamically adding and removing ChannelHandlers
+## 2. Reactor and EventLoop
 
-3. **ChannelHandler**
-   - Handles I/O events or intercepts I/O operations
-   - Converts data formats, handles exceptions, etc.
-   - Divided into inbound handlers (ChannelInboundHandler) and outbound handlers (ChannelOutboundHandler)
+### Classic Reactor Structure
 
-4. **EventLoop**
-   - The core for handling all I/O operations
-   - Usually one EventLoop can handle multiple Channels
-   - Ensures that all I/O events of a Channel are handled by the same Thread, avoiding synchronization issues
-
-5. **EventLoopGroup**
-   - Contains one or more EventLoops
-   - Used to manage and assign EventLoops to Channels
-   - Multiple EventLoopGroups can be configured as needed, such as separating I/O operations and time-consuming tasks
-
-6. **ByteBuf**
-   - Netty's data container, replacing Java NIO's ByteBuffer
-   - Provides more flexible and efficient byte buffer operations
-   - Supports pooling, reducing memory allocation and GC pressure
-
-7. **ChannelFuture**
-   - Represents the result of an asynchronous I/O operation
-   - Provides methods such as adding listeners and waiting for operation completion
-   - Used with ChannelPromise to set operation results
-
-### 3.2 Data Flow Process
-
-1. The client initiates a connection, and Netty creates a new Channel.
-2. The Channel is associated with an EventLoop, which is responsible for handling all I/O events for this Channel.
-3. Inbound data (such as a client request) enters the ChannelPipeline through the Channel.
-4. The data passes sequentially through the ChannelInboundHandlers in the ChannelPipeline.
-5. The processed data may be converted into outbound data (such as a server response).
-6. The outbound data passes sequentially through the ChannelOutboundHandlers.
-7. Finally, it is written back to the client through the Channel.
-
-### 3.3 Design Advantages
-
-1. **Highly modular**: Each component has clear responsibilities and is easy to extend and customize.
-2. **Asynchronous and non-blocking**: Based on an event-driven model, it efficiently handles concurrent connections.
-3. **Flexible threading model**: EventLoopGroups can be configured as needed to optimize resource usage.
-4. **Zero-copy support**: Reduces data copying between kernel space and user space, improving performance.
-5. **Rich protocol support**: Built-in multiple codecs make it easy to develop various network applications.
-
-### 3.4 Example: Building a Server
-
-The following code shows how to use Netty's core components to build a simple server:
-
-```java
-public class NettyServer {
-    public static void main(String[] args) throws Exception {
-        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-        EventLoopGroup workerGroup = new NioEventLoopGroup();
-        try {
-            ServerBootstrap b = new ServerBootstrap();
-            b.group(bossGroup, workerGroup)
-             .channel(NioServerSocketChannel.class)
-             .childHandler(new ChannelInitializer<SocketChannel>() {
-                 @Override
-                 public void initChannel(SocketChannel ch) throws Exception {
-                     ch.pipeline().addLast(new EchoServerHandler());
-                 }
-             });
-
-            ChannelFuture f = b.bind(8080).sync();
-            f.channel().closeFuture().sync();
-        } finally {
-            workerGroup.shutdownGracefully();
-            bossGroup.shutdownGracefully();
-        }
-    }
-}
-```
-## 4. How It Works
-
-### 4.1 Reactor Pattern
-
-Netty's design is based on a variant of the Reactor pattern. In this pattern, the Acceptor plays a key role in accepting new connections. The following is the core implementation of the Reactor pattern.
+Netty's model is a variant of Reactor: one Acceptor accepts connections, and multiple Handlers handle I/O.
 
 ```java
 public class Reactor implements Runnable {
@@ -157,18 +80,17 @@ public class Reactor implements Runnable {
         try {
             while (!Thread.interrupted()) {
                 selector.select();
-                Set<SelectionKey> selected = selector.selectedKeys();
-                Iterator<SelectionKey> it = selected.iterator();
+                Iterator<SelectionKey> it = selector.selectedKeys().iterator();
                 while (it.hasNext()) {
                     dispatch(it.next());
+                    it.remove();          // 必须移除，否则下次仍是就绪状态
                 }
-                selected.clear();
             }
         } catch (IOException ex) { /* ... */ }
     }
 
     void dispatch(SelectionKey k) {
-        Runnable r = (Runnable)(k.attachment());
+        Runnable r = (Runnable) k.attachment();
         if (r != null) {
             r.run();
         }
@@ -178,256 +100,94 @@ public class Reactor implements Runnable {
         public void run() {
             try {
                 SocketChannel c = serverSocket.accept();
-                if (c != null)
+                if (c != null) {
                     new Handler(selector, c);
+                }
             } catch (IOException ex) { /* ... */ }
         }
     }
 }
 ```
 
-#### Key Points of Acceptor Association
+Mapped to Netty:
 
-1. **Creation and attachment of Acceptor**
-   - In the Reactor constructor, create a ServerSocketChannel and register it with the Selector.
-   - Key line: `SelectionKey sk = serverSocket.register(selector, SelectionKey.OP_ACCEPT);`
-   - Immediately after: `sk.attach(new Acceptor());`
-   - Here, the Acceptor instance is attached to the SelectionKey of the ServerSocketChannel.
+| Classic Reactor | Netty |
+|---|---|
+| `Reactor` | `NioEventLoop` |
+| `Acceptor` | The accept branch in `NioMessageUnsafe.read` |
+| `Handler` | A group of Handlers in `ChannelPipeline` |
 
-2. **Triggering of Acceptor**
-   - In the Reactor run method, when select() returns, iterate over selectedKeys.
-   - Process each ready SelectionKey through the dispatch method.
-   - In the dispatch method, obtain the attached object (i.e., the Acceptor) from the SelectionKey and run it.
+`ChannelInitializer` does not handle accept; it only installs Handlers into the Pipeline after the Channel has been registered. Conflating the two will send you in the wrong direction when troubleshooting “the connection came in but no Handler was called.”
 
-3. **Responsibilities of Acceptor**
-   - When the Acceptor's run method is called, it accepts new connections: `SocketChannel c = serverSocket.accept();`
-   - For each new connection, create a new Handler to handle subsequent I/O operations.
+### The Main Loop of NioEventLoop
 
-4. **Relationship with Netty**
-   - In Netty, this pattern is further abstracted and optimized.
-   - NioEventLoop corresponds to the Reactor here.
-   - The ChannelInitializer configured in ServerBootstrap plays a role similar to the Acceptor.
-   - After a new connection is accepted, the ChannelInitializer is responsible for setting up the ChannelPipeline, similar to creating a new Handler here.
-
-#### Design Advantages
-
-1. **Separation of responsibilities**: The Acceptor focuses on accepting new connections, while the Handler handles specific I/O operations.
-2. **Scalability**: Multiple Reactor threads can easily be added to handle I/O operations while keeping a single Acceptor.
-3. **Non-blocking design**: The entire process is non-blocking, improving the system's concurrent processing capability.
-4. **Flexibility**: Through the attachment mechanism of SelectionKey, different handlers can be flexibly associated.
-
-This design allows Netty to efficiently handle a large number of concurrent connections while maintaining a clear and maintainable code structure. The clever association of the Acceptor ensures that new connections can be quickly accepted and dispatched to the appropriate handlers, which is a key part of the efficient operation of the Reactor pattern.
-
-### 4.2 EventLoop Thread Model
-
-Netty's EventLoop is responsible for handling all I/O events and tasks. Its core logic includes selecting ready I/O events, processing these events, and running tasks in the queue.
+One iteration of `run()` does only three things:
 
 ```java
-public final class NioEventLoop extends SingleThreadEventLoop {
-    private final Selector selector;
-    private final SelectorProvider provider;
-
-    NioEventLoop(NioEventLoopGroup parent, ThreadFactory threadFactory, SelectorProvider selectorProvider) {
-        super(parent, threadFactory, false);
-        this.provider = selectorProvider;
-        this.selector = openSelector();
-    }
-
-    protected void run() {
-        for (;;) {
-            try {
-                select();
-                processSelectedKeys();
-                runAllTasks();
-            } catch (Throwable t) {
-                handleLoopException(t);
-            }
-        }
-    }
-
-    private void select() throws IOException {
-        Selector selector = this.selector;
+protected void run() {
+    for (;;) {
         try {
-            int selectCnt = 0;
-            long currentTimeNanos = System.nanoTime();
-            long selectDeadLineNanos = currentTimeNanos + delayNanos(currentTimeNanos);
-            for (;;) {
-                long timeoutMillis = (selectDeadLineNanos - currentTimeNanos + 500000L) / 1000000L;
-                if (timeoutMillis <= 0) {
-                    if (selectCnt == 0) {
-                        selector.selectNow();
-                        selectCnt = 1;
-                    }
-                    break;
-                }
-
-                int selectedKeys = selector.select(timeoutMillis);
-                selectCnt ++;
-
-                if (selectedKeys != 0 || oldWakenUp || wakenUp.get() || hasTasks() || hasScheduledTasks()) {
-                    break;
-                }
-                if (Thread.interrupted()) {
-                    break;
-                }
-
-                currentTimeNanos = System.nanoTime();
-                if (currentTimeNanos >= selectDeadLineNanos) {
-                    selectCnt = 1;
-                    break;
-                }
-            }
-
-            if (selectCnt > MIN_PREMATURE_SELECTOR_RETURNS) {
-                logger.warn("Selector.select() returned prematurely {} times in a row; rebuilding Selector {}.",
-                        selectCnt, selector);
-                rebuildSelector();
-                selector = this.selector;
-            }
-        } catch (CancelledKeyException e) {
-            // Harmless exception - log anyway
-            logger.warn("Selector.select() threw CancelledKeyException.", e);
+            select();               // 等就绪事件，同时兼顾定时任务
+            processSelectedKeys();  // 处理 I/O
+            runAllTasks();          // 跑队列里的任务
+        } catch (Throwable t) {
+            handleLoopException(t);
         }
-    }
-
-    private void processSelectedKeys() {
-        Set<SelectionKey> selectedKeys = selector.selectedKeys();
-        if (selectedKeys.isEmpty()) {
-            return;
-        }
-        Iterator<SelectionKey> i = selectedKeys.iterator();
-        for (;;) {
-            final SelectionKey k = i.next();
-            final Object a = k.attachment();
-            i.remove();
-            if (a instanceof AbstractNioChannel) {
-                processSelectedKey(k, (AbstractNioChannel) a);
-            } else {
-                @SuppressWarnings("unchecked")
-                NioTask<SelectableChannel> task = (NioTask<SelectableChannel>) a;
-                processSelectedKey(k, task);
-            }
-            if (!i.hasNext()) {
-                break;
-            }
-        }
-    }
-
-    private void processSelectedKey(SelectionKey k, AbstractNioChannel ch) {
-        final AbstractNioChannel.NioUnsafe unsafe = ch.unsafe();
-        if (!k.isValid()) {
-            unsafe.close(unsafe.voidPromise());
-            return;
-        }
-
-        try {
-            int readyOps = k.readyOps();
-            if ((readyOps & SelectionKey.OP_CONNECT) != 0) {
-                int ops = k.interestOps();
-                ops &= ~SelectionKey.OP_CONNECT;
-                k.interestOps(ops);
-                unsafe.finishConnect();
-            }
-            if ((readyOps & SelectionKey.OP_WRITE) != 0) {
-                ch.unsafe().forceFlush();
-            }
-            if ((readyOps & (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT)) != 0 || readyOps == 0) {
-                unsafe.read();
-            }
-        } catch (CancelledKeyException ignored) {
-            unsafe.close(unsafe.voidPromise());
-        }
-    }
-
-    protected boolean runAllTasks(long timeoutNanos) {
-        fetchFromScheduledTaskQueue();
-        Runnable task = pollTask();
-        if (task == null) {
-            return false;
-        }
-
-        final long deadline = ScheduledFutureTask.nanoTime() + timeoutNanos;
-        long runTasks = 0;
-        long lastExecutionTime;
-        for (;;) {
-            try {
-                task.run();
-            } catch (Throwable t) {
-                logger.warn("A task raised an exception.", t);
-            }
-
-            runTasks++;
-            if ((runTasks & 0x3F) == 0) {
-                lastExecutionTime = ScheduledFutureTask.nanoTime();
-                if (lastExecutionTime >= deadline) {
-                    break;
-                }
-            }
-
-            task = pollTask();
-            if (task == null) {
-                lastExecutionTime = ScheduledFutureTask.nanoTime();
-                break;
-            }
-        }
-
-        return true;
     }
 }
 ```
 
-#### processSelectedKeys() Analysis
+Two things in `select()` are worth noting:
 
-1. **Get selected keys**: Get all ready SelectionKeys from the selector.
+- The timeout passed in is the remaining time until the nearest scheduled task (`delayNanos`), so tasks submitted via `schedule` are not delayed by blocking in `select`.
+- If consecutive empty returns exceed a threshold (`MIN_PREMATURE_SELECTOR_RETURNS`, default 512), `rebuildSelector()` is called to replace the `Selector` with a new one. This works around a JDK bug with epoll empty polling on Linux, whose symptom is one CPU core pegged at 100% while traffic remains normal.
 
-2. **Iterate and process**: Process each SelectionKey.
-
-3. **Identify attached object**: Check the attached object of the SelectionKey, which may be a Channel or NioTask.
-
-4. **Handle I/O events**: 
-   - For the connect completion event (OP_CONNECT), complete the connection process.
-   - For the writable event (OP_WRITE), perform a forced flush.
-   - For the readable event (OP_READ) or accept connection event (OP_ACCEPT), perform a read operation.
-
-5. **Exception handling**: If a CancelledKeyException is encountered, close the related Channel.
-
-#### runAllTasks() Analysis
-
-1. **Task acquisition**: Get tasks from the scheduled task queue and poll the normal task queue.
-
-2. **Execute tasks**: Execute as many tasks as possible within the specified time.
-
-3. **Time control**: Use a deadline to control the total task execution time and prevent long-term occupation of the EventLoop.
-
-4. **Periodic check**: After every 64 tasks are executed, check whether the timeout has been exceeded.
-
-5. **Exception handling**: Catch and log exceptions during task execution to ensure that an exception in one task does not affect the execution of other tasks.
-
-This design ensures that the EventLoop can efficiently handle I/O events and execute tasks while maintaining reasonable use of system resources. By alternately processing I/O events and executing tasks in a single loop, Netty implements an efficient event-driven model that can quickly respond to network events while processing related business logic.
-
-### 4.3 Zero Copy
-
-Netty achieves zero copy by using direct memory buffers and low-level optimizations, improving data transfer efficiency.
+`runAllTasks()` first transfers due scheduled tasks once, then executes them in a deadline-bounded manner, checking for timeout every 64 tasks:
 
 ```java
-public abstract class AbstractNioChannel extends AbstractChannel {
-    protected final int doReadBytes(ByteBuf byteBuf) throws Exception {
-        final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
-        allocHandle.attemptedBytesRead(byteBuf.writableBytes());
-        return byteBuf.writeBytes(javaChannel(), allocHandle.attemptedBytesRead());
+if ((runTasks & 0x3F) == 0) {
+    lastExecutionTime = ScheduledFutureTask.nanoTime();
+    if (lastExecutionTime >= deadline) {
+        break;
     }
 }
 ```
 
-### 4.4 ChannelPipeline
+The limit is there so the task queue does not starve I/O. But if a **single** task runs for a long time, the limit becomes ineffective—this is why making a synchronous RPC call in `channelRead` can stall an entire group of connections.
 
-ChannelPipeline provides a powerful mechanism for handling inbound and outbound events.
+### Branches in processSelectedKeys
+
+```java
+int readyOps = k.readyOps();
+if ((readyOps & SelectionKey.OP_CONNECT) != 0) {
+    int ops = k.interestOps();
+    k.interestOps(ops & ~SelectionKey.OP_CONNECT);  // 连上后取消关注，否则一直触发
+    unsafe.finishConnect();
+}
+if ((readyOps & SelectionKey.OP_WRITE) != 0) {
+    ch.unsafe().forceFlush();
+}
+if ((readyOps & (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT)) != 0 || readyOps == 0) {
+    unsafe.read();   // readyOps == 0 也要读一次，处理连接被对端关闭的情况
+}
+```
+
+`OP_WRITE` is registered only when the write buffer has a backlog and is not watched otherwise—registering `OP_WRITE` on a `Selector` while the socket remains writable will cause busy spinning and saturate the CPU.
+
+### Thread Model Constraints
+
+- All events for the same `Channel` are handled by the same thread, so Handlers do not need locking.
+- To write from another thread, use `channel.writeAndFlush()`; Netty wraps it as a task and submits it to the target EventLoop.
+- The default number of EventLoop threads is `CPU cores × 2`; you can increase it for I/O-intensive workloads, and for pure forwarding it can run with the count reduced to the number of cores.
+- Blocking operations should be offloaded to an application thread pool: `DefaultEventLoopGroup` is only suitable for running non-blocking CPU tasks; it provides no protection beyond thread isolation.
+
+## 3. Pipeline and Handler
 
 ```java
 public class EchoServerHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        ctx.write(msg);
+        ctx.write(msg);          // 不 flush，等一批读完统一刷
     }
 
     @Override
@@ -437,75 +197,85 @@ public class EchoServerHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        cause.printStackTrace();
         ctx.close();
     }
 }
 ```
 
-### 4.5 ByteBuf
+A few conventions:
 
-Netty's ByteBuf is a powerful byte container that overcomes some limitations of Java NIO ByteBuffer.
+- `ctx.write()` propagates from the current Handler in the outbound direction; `channel.write()` starts from the tail of the Pipeline.
+- If `msg` is a `ByteBuf`, it must be released after use; `SimpleChannelInboundHandler` releases it automatically, while `ChannelInboundHandlerAdapter` does not. The symptom of a missed release is off-heap memory growing continuously until `OutOfDirectMemoryError`.
+- To propagate an exception, either call `ctx.fireExceptionCaught(cause)` or handle it yourself; swallowing an exception leaves the connection half-dead.
+- Place codecs near the front of the Pipeline; frame decoders such as `LengthFieldBasedFrameDecoder` must come before business Handlers.
+
+## 4. ByteBuf
+
+`ByteBuf` is an abstract class; do not `new` it directly—create it with `Unpooled` or an allocator:
 
 ```java
-public final class ByteBuf {
-    private final byte[] array;
-    private int readerIndex;
-    private int writerIndex;
+ByteBuf buf = ctx.alloc().buffer(256);      // 跟随 Channel 的分配器（默认池化）
+buf.writeInt(1);
+buf.writeBytes(payload);
 
-    public ByteBuf(int capacity) {
-        array = new byte[capacity];
-    }
-
-    public ByteBuf writeBytes(byte[] src) {
-        int length = src.length;
-        ensureWritable(length);
-        System.arraycopy(src, 0, array, writerIndex, length);
-        writerIndex += length;
-        return this;
-    }
-
-    public ByteBuf readBytes(byte[] dst) {
-        int length = dst.length;
-        checkReadableBytes(length);
-        System.arraycopy(array, readerIndex, dst, 0, length);
-        readerIndex += length;
-        return this;
-    }
-}
+int id = buf.readInt();                     // readerIndex 前移
+int readable = buf.readableBytes();          // writerIndex - readerIndex
+buf.release();                               // 引用计数归零才真正归还内存
 ```
 
-## 5. Performance Optimization
+Differences from `ByteBuffer`:
 
-Netty's high performance stems from multiple carefully designed features:
+- Separate read and write indexes; switching between reading and writing does not require `flip()`.
+- Capacity expands on demand; `ensureWritable()` grows it automatically.
+- Managed by reference counting; pooled allocation relies on it for return, and forgetting `release()` means a leak.
+- `slice()` / `duplicate()` share the underlying memory without copying data.
 
-1. **Asynchronous non-blocking I/O**: Based on Java NIO, it implements an efficient event-driven model.
+Pooling has been the default since 4.1 (`PooledByteBufAllocator`); explicitly setting it only makes sense when you need to change the allocation strategy:
 
-2. **Zero copy**: Uses direct memory buffers to reduce the number of data copies.
+```java
+// 服务端：option 作用于父 Channel（监听 socket），childOption 作用于每条连接
+b.childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
+b.childOption(ChannelOption.TCP_NODELAY, true);
+```
 
-3. **Memory pool**: Reduces memory allocation and GC pressure by reusing ByteBuf.
+Writing `option(ChannelOption.ALLOCATOR, ...)` only affects the listening socket and has no effect on application connections—this is a classic case of configuration that “looks like it took effect but actually did not.”
 
-4. **Efficient protocol encoding/decoding**: Provides rich codecs, such as protobuf, thrift, etc.
+## V. The Four Forms of Zero-Copy
 
-5. **Flexible thread model**: EventLoopGroup can be configured according to requirements.
+In Netty, "zero-copy" refers to four different things. Lumping them together leads to misdiagnosing performance bottlenecks:
 
-## 6. Practical Tips
+| Form | Approach | What It Saves |
+|---|---|---|
+| Off-heap buffer | Read directly into `DirectByteBuf` | One copy from heap to off-heap |
+| Composite buffer | `CompositeByteBuf` combines multiple `ByteBuf`s | The full-segment copy during merging |
+| Slicing and views | `slice()` / `duplicate()` | Data copying during splitting |
+| File transfer | `FileRegion` + `transferTo` | Copies between user space and kernel space |
 
-1. **Use ChannelHandler appropriately**: Divide handlers according to business logic and maintain single responsibility.
+The first three only eliminate copying inside the JVM; only the last one involves zero-copy at the system-call level. `FileRegion` relies on `sendfile` and is unavailable when TLS is enabled (encryption requires reading data into user space), in which case you can only fall back to `ChunkedFile`.
 
-2. **Leverage memory pool**: Use PooledByteBufAllocator to allocate ByteBuf.
+```java
+// 组合缓冲：把 header 和 body 合成一个逻辑上的连续缓冲
+CompositeByteBuf composite = Unpooled.compositeBuffer();
+composite.addComponents(true, header, body);   // true 表示自动调整 writerIndex
+```
 
-   ```java
-   Bootstrap b = new Bootstrap();
-   b.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
-   ```
+## VI. Common Configuration and Troubleshooting
 
-3. **Handle backpressure**: Use the WRITE_BUFFER_WATER_MARK option to control the write buffer size.
+- **Write buffer watermarks**: The default high/low watermarks of `WriteBufferWaterMark` are 32KB / 64KB. When `channel.isWritable()` turns false, you should slow down. In slow-consumer scenarios, raise them; otherwise `writeAndFlush` keeps piling up until OOM.
+- **Connection idle detection**: `IdleStateHandler` read-idle detection must be paired with an application-level heartbeat; adding the handler without sending heartbeats is meaningless.
+- **`SO_BACKLOG`**: The default is on the small side; under high-concurrency connection establishment it can be raised to 1024.
+- **`TCP_NODELAY`**: Enabled by default in Netty; there is no need to disable it for small packets.
+- **Shutdown order**: `shutdownGracefully()` stops accepting new tasks before exiting; do not use `shutdownNow()`.
 
-4. **Choose an appropriate EventLoopGroup**: For CPU-intensive tasks, use DefaultEventLoopGroup.
+| Symptom | Common Cause |
+|---|---|
+| One CPU core at 100% with normal traffic | epoll busy-spinning; check whether `rebuildSelector` is triggered |
+| Off-heap memory grows until OOM | `ByteBuf` not `release()`d |
+| Slowing business processing drags down all connections | Blocking calls made in the EventLoop |
+| Client receives no data and no error is reported | Write buffer is full but `isWritable()` is not checked |
 
-5. **Use FastThreadLocal**: The FastThreadLocal provided by Netty is faster than Java's native ThreadLocal.
+## Related Reading
 
-## 7. Conclusion
-
-Through its carefully designed architecture and optimization strategies, Netty provides strong support for developing high-performance, scalable network applications. A deep understanding of Netty's principles can help developers better leverage its features to build efficient and reliable network systems.
+- [JNA: Calling Native Libraries from Java](/en/backend/jna): how to integrate when you need to reach down to a native library
+- [Kafka Storage and Replication Mechanisms](/en/backend/kafka): the network-layer implementation of a messaging system
+- [Spring Container, AOP, and Declarative Transactions](/en/backend/spring): threads and lifecycle inside the container

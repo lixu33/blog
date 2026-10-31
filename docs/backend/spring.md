@@ -1,8 +1,9 @@
 ---
 isTimeLine: true
-title: 深入 Spring 源码解析
-description: 本文通过分析Spring框架的源代码,深入剖析IoC容器、AOP、事务管理和SpringMVC的核心实现原理,为高级Java开发者提供深度技术洞察。
+title: Spring 容器、AOP 与声明式事务的实现
+description: 沿 refresh() 十二步拆解 Spring 容器启动，说明 Bean 从实例化到销毁的回调顺序、AOP 代理在初始化之后才生成的原因、声明式事务的 Advisor 结构与失效条件，以及 DispatcherServlet 处理一次请求的链路。
 date: 2024-06-28
+updated: 2026-10-31
 tags:
 - Spring
 - 源码分析
@@ -15,192 +16,127 @@ categories:
 head:
 - - meta
   - name: keywords
-    content: Spring源码,IoC容器,AOP实现,事务管理,SpringMVC原理,Java框架
+    content: Spring源码,IoC容器,AOP实现,事务管理,SpringMVC原理,Java框架,Bean生命周期,refresh,TransactionInterceptor
 ---
 
-# 深入Spring源码：IoC、AOP、事务管理与SpringMVC的核心实现
+# Spring 容器、AOP 与声明式事务的实现
 
-Spring框架以其强大的功能和灵活的设计在Java生态系统中占据重要地位。本文将深入Spring的源码,详细分析IoC容器、AOP、事务管理和SpringMVC的核心实现原理,为高级Java开发者提供深度技术洞察。
+项目里「注解没生效」的问题，大多出在容器还没走到那个阶段：`@Autowired` 为 null 说明 Bean 尚未被后处理器处理，`@Transactional` 不生效通常是调用没经过代理，`@PostConstruct` 里拿不到别的 Bean 则是依赖顺序问题。把这几步的先后理清，排查就有落点。
 
-## 1. IoC容器：控制反转的核心实现
+下面先串一遍 `refresh()` 的启动流程，再讲 Bean 生命周期里的回调顺序、AOP 代理的生成时机，然后是声明式事务的组装方式与失效条件，最后是 `DispatcherServlet` 处理一次请求的链路。
 
-Spring的IoC容器是整个框架的基础,其核心实现主要在`org.springframework.beans`和`org.springframework.context`包中。
+## 先看三条主线
 
-### 1.1 BeanFactory接口
+| 机制 | 落点 | 出问题时的表现 |
+|---|---|---|
+| IoC 容器 | `refresh()` 十二步 | Bean 定义没加载、依赖注入为 null |
+| AOP | `postProcessAfterInitialization` | 切面不生效、代理类型不对 |
+| 声明式事务 | `TransactionInterceptor` | 抛异常未回滚、事务范围超出预期 |
 
-`BeanFactory`是Spring IoC容器的根接口,定义了访问Spring容器的基本方法:
+三条线的共同前提是：Spring 6 起要求 JDK 17，`javax.*` 全部换成 `jakarta.*`（Spring Boot 3 对应）。在老项目里混用两套命名空间，会得到「类找不到」而不是配置错误。
+
+## 一、IoC 容器
+
+### 接口分层
+
+`BeanFactory` 是最小契约，只负责拿 Bean：
 
 ```java
 public interface BeanFactory {
     Object getBean(String name) throws BeansException;
     <T> T getBean(String name, Class<T> requiredType) throws BeansException;
     <T> T getBean(Class<T> requiredType) throws BeansException;
-    // ... 其他方法
 }
 ```
 
-### 1.2 ApplicationContext接口
-
-`ApplicationContext`是`BeanFactory`的子接口,提供了更多的企业级功能:
+`ApplicationContext` 在它之上叠加了资源加载、事件发布、国际化、环境抽象：
 
 ```java
-public interface ApplicationContext extends EnvironmentCapable, ListableBeanFactory, HierarchicalBeanFactory,
-        MessageSource, ApplicationEventPublisher, ResourcePatternResolver {
-    // ... 继承自父接口的方法
+public interface ApplicationContext extends EnvironmentCapable, ListableBeanFactory,
+        HierarchicalBeanFactory, MessageSource, ApplicationEventPublisher, ResourcePatternResolver {
 }
 ```
 
-### 1.3 容器启动流程
+区别在于 `BeanFactory` 是懒加载的，`ApplicationContext` 在 `refresh()` 结束时会把所有单例都建出来。启动慢、启动即报错，都来自这一点。
 
-以`AnnotationConfigApplicationContext`为例,其启动流程如下:
+### refresh() 的十二步
+
+这段代码在 `AbstractApplicationContext`，不在 `AnnotationConfigApplicationContext`——后者只负责注册 `AnnotatedBeanDefinitionReader` 和 `ClassPathBeanDefinitionScanner`，刷新逻辑由父类完成：
 
 ```java
-public class AnnotationConfigApplicationContext extends GenericApplicationContext implements AnnotationConfigRegistry {
-    public AnnotationConfigApplicationContext() {
-        this.reader = new AnnotatedBeanDefinitionReader(this);
-        this.scanner = new ClassPathBeanDefinitionScanner(this);
-    }
-
-    public AnnotationConfigApplicationContext(Class<?>... componentClasses) {
-        this();
-        register(componentClasses);
-        refresh();
-    }
-
-    @Override
-    public void refresh() throws BeansException, IllegalStateException {
-        synchronized (this.startupShutdownMonitor) {
-            // 1. 准备刷新上下文环境
-            prepareRefresh();
-
-            // 2. 初始化BeanFactory,并进行XML文件读取
-            ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
-
-            // 3. 对BeanFactory进行各种功能填充
-            prepareBeanFactory(beanFactory);
-
-            try {
-                // 4. 子类覆盖方法做额外的处理
-                postProcessBeanFactory(beanFactory);
-
-                // 5. 激活各种BeanFactory处理器
-                invokeBeanFactoryPostProcessors(beanFactory);
-
-                // 6. 注册拦截Bean创建的Bean处理器
-                registerBeanPostProcessors(beanFactory);
-
-                // 7. 初始化消息源
-                initMessageSource();
-
-                // 8. 初始化应用事件广播器
-                initApplicationEventMulticaster();
-
-                // 9. 子类重写方法,在容器刷新中可以自定义逻辑
-                onRefresh();
-
-                // 10. 注册监听器
-                registerListeners();
-
-                // 11. 初始化所有剩下的单例Bean
-                finishBeanFactoryInitialization(beanFactory);
-
-                // 12. 完成刷新过程,通知生命周期处理器lifecycleProcessor刷新过程,同时发出ContextRefreshEvent通知
-                finishRefresh();
-            }
-            catch (BeansException ex) {
-                // 销毁已经创建的单例Bean
-                destroyBeans();
-
-                // 重置'active'标志
-                cancelRefresh(ex);
-
-                throw ex;
-            }
+public void refresh() throws BeansException, IllegalStateException {
+    synchronized (this.startupShutdownMonitor) {
+        prepareRefresh();                                    // 1 记录启动时间、校验环境
+        ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory(); // 2 建 BeanFactory
+        prepareBeanFactory(beanFactory);                     // 3 注册内置依赖
+        try {
+            postProcessBeanFactory(beanFactory);             // 4 子类扩展
+            invokeBeanFactoryPostProcessors(beanFactory);    // 5 处理 Bean 定义（@Configuration 在此解析）
+            registerBeanPostProcessors(beanFactory);         // 6 注册 BeanPostProcessor
+            initMessageSource();                             // 7 国际化
+            initApplicationEventMulticaster();               // 8 事件广播器
+            onRefresh();                                     // 9 子类扩展（Web 容器在此建 Tomcat）
+            registerListeners();                             // 10 注册监听器
+            finishBeanFactoryInitialization(beanFactory);    // 11 实例化所有非懒加载单例
+            finishRefresh();                                 // 12 发布 ContextRefreshedEvent
+        } catch (BeansException ex) {
+            destroyBeans();
+            cancelRefresh(ex);
+            throw ex;
         }
     }
 }
 ```
 
-### 1.4 容器启动主要扩展点
+两个关键顺序：
 
-1. `BeanFactoryPostProcessor`: 允许在容器实例化任何bean之前读取bean的定义,并可以修改它。
-   
-   ```java
-   public interface BeanFactoryPostProcessor {
-       void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException;
-   }
-   ```
+- 第 5 步在第 6 步之前。`BeanFactoryPostProcessor` 改的是 Bean 定义（元数据），此时还没有任何业务 Bean 实例。
+- 第 11 步才开始造对象。所有 `@Autowired` 的注入、`@PostConstruct` 的回调、AOP 代理的织入，都发生在这一次调用里。
 
-2. `BeanPostProcessor`: 允许在Bean初始化前后进行额外的处理。
-   
-   ```java
-   public interface BeanPostProcessor {
-       @Nullable
-       default Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-           return bean;
-       }
-
-       @Nullable
-       default Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-           return bean;
-       }
-   }
-   ```
-
-3. `ApplicationListener`: 用于监听应用程序中的事件。
-   
-   ```java
-   public interface ApplicationListener<E extends ApplicationEvent> extends EventListener {
-       void onApplicationEvent(E event);
-   }
-   ```
-
-### 1.5 Spring内置注解的解析
-
-Spring通过`AnnotatedBeanDefinitionReader`来解析注解。以`@Component`注解为例:
-
-1. `ClassPathBeanDefinitionScanner`扫描类路径。
-2. `ClassPathScanningCandidateComponentProvider`识别带有`@Component`及其派生注解的类。
-3. `AnnotationConfigUtils`注册相关的后处理器。
-4. `ConfigurationClassPostProcessor`处理`@Configuration`类。
-5. `AutowiredAnnotationBeanPostProcessor`处理`@Autowired`和`@Value`注解。
-
-关键代码片段:
+### 三个扩展点
 
 ```java
-public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateComponentProvider {
-    protected Set<BeanDefinitionHolder> doScan(String... basePackages) {
-        Set<BeanDefinitionHolder> beanDefinitions = new LinkedHashSet<>();
-        for (String basePackage : basePackages) {
-            Set<BeanDefinition> candidates = findCandidateComponents(basePackage);
-            for (BeanDefinition candidate : candidates) {
-                // ... 解析作用域等信息
-                BeanDefinitionHolder definitionHolder = new BeanDefinitionHolder(candidate, beanName);
-                beanDefinitions.add(definitionHolder);
-                registerBeanDefinition(definitionHolder, this.registry);
-            }
-        }
-        return beanDefinitions;
+public interface BeanFactoryPostProcessor {
+    void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException;
+}
+```
+
+```java
+public interface BeanPostProcessor {
+    @Nullable
+    default Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+        return bean;
+    }
+    @Nullable
+    default Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+        return bean;
     }
 }
 ```
 
-`AutowiredAnnotationBeanPostProcessor`处理`@Autowired`注解:
+`ApplicationListener` 监听容器事件，`ContextRefreshedEvent` 在第 12 步发出，此时所有单例可用。
+
+自定义 `BeanPostProcessor` 时要注意：它本身会被提前实例化，如果它依赖别的 Bean，那个 Bean 也会被提前创建，可能绕过某些后处理。
+
+### 注解的解析路径
+
+`@Component` 一类注解的处理链条是：`ClassPathBeanDefinitionScanner` 扫描 → `ClassPathScanningCandidateComponentProvider` 按 `@Component` 及其派生注解匹配 → 生成 `BeanDefinition` 注册进容器。`@Configuration` 由 `ConfigurationClassPostProcessor` 处理（它本身是 `BeanFactoryPostProcessor`，在第 5 步生效），`@Autowired` 由 `AutowiredAnnotationBeanPostProcessor` 处理。
+
+后者的声明在 5.3 之后变了，`InstantiationAwareBeanPostProcessorAdapter` 已废弃并在 6.0 移除：
 
 ```java
-public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBeanPostProcessorAdapter
-        implements MergedBeanDefinitionPostProcessor, PriorityOrdered, BeanFactoryAware {
+public class AutowiredAnnotationBeanPostProcessor
+        implements SmartInstantiationAwareBeanPostProcessor, MergedBeanDefinitionPostProcessor,
+                   PriorityOrdered, BeanFactoryAware {
 
     @Override
     public PropertyValues postProcessProperties(PropertyValues pvs, Object bean, String beanName) {
         InjectionMetadata metadata = findAutowiringMetadata(beanName, bean.getClass(), pvs);
         try {
             metadata.inject(bean, beanName, pvs);
-        }
-        catch (BeanCreationException ex) {
+        } catch (BeanCreationException ex) {
             throw ex;
-        }
-        catch (Throwable ex) {
+        } catch (Throwable ex) {
             throw new BeanCreationException(beanName, "Injection of autowired dependencies failed", ex);
         }
         return pvs;
@@ -208,37 +144,37 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 }
 ```
 
-### 1.6 Bean的生命周期
+### Bean 的生命周期
 
-Bean的生命周期在`AbstractAutowireCapableBeanFactory`的`doCreateBean`方法中得到了充分体现:
+`doCreateBean` 把造对象拆成三段：
 
 ```java
-protected Object doCreateBean(String beanName, RootBeanDefinition mbd, @Nullable Object[] args) throws BeanCreationException {
-    // 1. 实例化Bean
-    BeanWrapper instanceWrapper = createBeanInstance(beanName, mbd, args);
-    final Object bean = instanceWrapper.getWrappedInstance();
+protected Object doCreateBean(String beanName, RootBeanDefinition mbd, @Nullable Object[] args) {
+    BeanWrapper instanceWrapper = createBeanInstance(beanName, mbd, args);  // 构造/工厂方法
+    Object bean = instanceWrapper.getWrappedInstance();
+    exposeEarlyReference(beanName, bean, mbd);          // 三级缓存，解决循环依赖
 
-    // 2. 属性填充
-    populateBean(beanName, mbd, instanceWrapper);
-
-    // 3. 初始化Bean
-    Object exposedObject = initializeBean(beanName, exposedObject, mbd);
-    
-    // ... 其他逻辑
-    
+    populateBean(beanName, mbd, instanceWrapper);       // 属性注入
+    Object exposedObject = bean;
+    exposedObject = initializeBean(beanName, exposedObject, mbd);  // 初始化回调
     return exposedObject;
 }
 ```
 
-在这个过程中,Spring会调用各种生命周期回调方法,如`BeanNameAware`、`BeanFactoryAware`、`InitializingBean`等接口方法,以及`@PostConstruct`和`@PreDestroy`注解标记的方法。
+`initializeBean` 内部的顺序是固定的：
 
-## 2. AOP：面向切面编程的实现
+1. `BeanNameAware` / `BeanClassLoaderAware` / `BeanFactoryAware` 等 `*Aware` 回调
+2. 所有 `BeanPostProcessor.postProcessBeforeInitialization`
+3. `@PostConstruct` → `InitializingBean.afterPropertiesSet()` → `init-method`
+4. 所有 `BeanPostProcessor.postProcessAfterInitialization`（**AOP 代理在这一步生成**）
 
-Spring AOP的核心实现位于`org.springframework.aop`包中。AOP代理的创建是在Bean实例化之后，初始化之前完成的。
+销毁时依次走 `@PreDestroy`、`DisposableBean.destroy()`、`destroy-method`。
 
-### 2.1 AOP代理创建流程
+## 二、AOP
 
-Spring AOP代理的创建主要发生在`AbstractAutoProxyCreator`类中，这个类实现了`BeanPostProcessor`接口：
+### 代理是在初始化之后才生成的
+
+常见误解是「实例化之后、初始化之前就套上代理」。实际顺序由 `AbstractAutoProxyCreator` 决定，它实现的是 `postProcessAfterInitialization`：
 
 ```java
 public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
@@ -256,333 +192,120 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
     }
 
     protected Object wrapIfNecessary(Object bean, String beanName, Object cacheKey) {
-        // ... 前置检查
-
-        // 获取适用于bean的通知器
         Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(bean.getClass(), beanName, null);
         if (specificInterceptors != DO_NOT_PROXY) {
             this.advisedBeans.put(cacheKey, Boolean.TRUE);
-            // 创建代理
-            Object proxy = createProxy(
-                    bean.getClass(), beanName, specificInterceptors, new SingletonTargetSource(bean));
+            Object proxy = createProxy(bean.getClass(), beanName, specificInterceptors,
+                    new SingletonTargetSource(bean));
             this.proxyTypes.put(cacheKey, proxy.getClass());
             return proxy;
         }
-
         this.advisedBeans.put(cacheKey, Boolean.FALSE);
         return bean;
     }
-
-    protected Object createProxy(Class<?> beanClass, @Nullable String beanName,
-            @Nullable Object[] specificInterceptors, TargetSource targetSource) {
-
-        ProxyFactory proxyFactory = new ProxyFactory();
-        // ... 设置ProxyFactory的属性
-
-        Advisor[] advisors = buildAdvisors(beanName, specificInterceptors);
-        proxyFactory.addAdvisors(advisors);
-        proxyFactory.setTargetSource(targetSource);
-        customizeProxyFactory(proxyFactory);
-
-        return proxyFactory.getProxy(getProxyClassLoader());
-    }
 }
 ```
 
-### 2.2 AOP代理创建时机
+由此得到两个推论：
 
-AOP代理的创建时机是在Bean的生命周期中的初始化阶段。具体来说：
+- `@PostConstruct` 里执行的方法走的是原始对象，此时还没有代理，所以方法内部的 self-invocation 不可能被切面拦到。
+- 返回给容器的是代理对象，之后注入到别处的都是代理；但 Bean 内部的 `this` 始终指向原始对象。
 
-1. Bean实例化
-2. 属性注入
-3. 初始化前（@PostConstruct）
-4. AOP代理创建（在AbstractAutoProxyCreator.postProcessAfterInitialization中）
-5. 初始化后
+### JDK 动态代理与 CGLIB
 
-### 2.3 Spring内部代理示例：事务管理
+`ProxyFactory.getProxy()` 最终交给 `AopProxy` 的两个实现：
 
-Spring的声明式事务管理就是通过AOP实现的。以`@Transactional`注解为例：
+| 条件 | 实现 | 限制 |
+|---|---|---|
+| 目标类实现了接口 | `JdkDynamicAopProxy` | 只能按接口调用，注入时用接口类型 |
+| 无接口 | `CglibAopProxy` | 不能代理 final 类和 final 方法 |
 
-1. `TransactionInterceptor`实现了`MethodInterceptor`接口，用于在方法调用前后处理事务。
+Spring Boot 2.x 起 `spring.aop.proxy-target-class` 默认为 `true`，即无脑用 CGLIB，所以「按接口注入」在 Boot 项目里通常不再必要。CGLIB 已被重打包进 `spring-core`（`org.springframework.cglib`），不需要额外引入 `cglib` 依赖——显式加反而可能撞上 JDK 版本不兼容的旧版本。
 
-2. `BeanFactoryTransactionAttributeSourceAdvisor`将`TransactionInterceptor`和`TransactionAttributeSource`组合在一起，形成一个Advisor。
+### 代理对象与自调用
 
-3. `ProxyTransactionManagementConfiguration`配置类创建了这些组件：
+`JdkDynamicAopProxy.invoke` 会取出该方法的拦截器链，空链直接反射调用，非空则走 `ReflectiveMethodInvocation.proceed()`：
 
 ```java
-@Configuration
-public class ProxyTransactionManagementConfiguration extends AbstractTransactionManagementConfiguration {
-
-    @Bean(name = TransactionManagementConfigUtils.TRANSACTION_ADVISOR_BEAN_NAME)
-    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
-    public BeanFactoryTransactionAttributeSourceAdvisor transactionAdvisor() {
-        BeanFactoryTransactionAttributeSourceAdvisor advisor = new BeanFactoryTransactionAttributeSourceAdvisor();
-        advisor.setTransactionAttributeSource(transactionAttributeSource());
-        advisor.setAdvice(transactionInterceptor());
-        advisor.setOrder(this.enableTx.<Integer>getNumber("order"));
-        return advisor;
-    }
-
-    @Bean
-    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
-    public TransactionAttributeSource transactionAttributeSource() {
-        return new AnnotationTransactionAttributeSource();
-    }
-
-    @Bean
-    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
-    public TransactionInterceptor transactionInterceptor() {
-        TransactionInterceptor interceptor = new TransactionInterceptor();
-        interceptor.setTransactionAttributeSource(transactionAttributeSource());
-        if (this.txManager != null) {
-            interceptor.setTransactionManager(this.txManager);
-        }
-        return interceptor;
-    }
+List<Object> chain = this.advised.getInterceptorsAndDynamicInterceptionAdvice(method, targetClass);
+if (chain.isEmpty()) {
+    retVal = AopUtils.invokeJoinpointUsingReflection(target, method, argsToUse);
+} else {
+    invocation = new ReflectiveMethodInvocation(proxy, target, method, args, targetClass, chain);
+    retVal = invocation.proceed();
 }
 ```
 
-当Spring容器处理带有`@Transactional`注解的Bean时：
+这就是自调用失效的机制来源：`this.method()` 不经过 `proxy.invoke`，链根本不会被取出来。要绕开，注入自身代理、用 `AopContext.currentProxy()`（需 `exposeProxy=true`），或把方法拆到另一个 Bean。
 
-1. `AbstractAutoProxyCreator`检测到`BeanFactoryTransactionAttributeSourceAdvisor`适用于该Bean。
-2. 创建一个代理，将`TransactionInterceptor`应用到相应的方法上。
-3. 当调用带有`@Transactional`注解的方法时，`TransactionInterceptor`会在方法执行前开启事务，方法执行后提交或回滚事务。
+## 三、声明式事务
 
-### 2.4 ProxyFactory
+### 组装方式
 
-`ProxyFactory`是创建AOP代理的核心类：
+`@EnableTransactionManagement` 导入 `ProxyTransactionManagementConfiguration`，它产出三样东西：
 
 ```java
-public class ProxyFactory extends ProxyCreatorSupport {
-    public ProxyFactory() {
-    }
-
-    public ProxyFactory(Object target) {
-        setTarget(target);
-        setInterfaces(ClassUtils.getAllInterfaces(target));
-    }
-
-    public Object getProxy() {
-        return createAopProxy().getProxy();
-    }
-
-    // ... 其他方法
+@Bean(name = TransactionManagementConfigUtils.TRANSACTION_ADVISOR_BEAN_NAME)
+@Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+public BeanFactoryTransactionAttributeSourceAdvisor transactionAdvisor() {
+    BeanFactoryTransactionAttributeSourceAdvisor advisor = new BeanFactoryTransactionAttributeSourceAdvisor();
+    advisor.setTransactionAttributeSource(transactionAttributeSource());
+    advisor.setAdvice(transactionInterceptor());
+    advisor.setOrder(this.enableTx.<Integer>getNumber("order"));
+    return advisor;
 }
 ```
 
-### 2.5 AopProxy
+- `AnnotationTransactionAttributeSource` 解析方法上的 `@Transactional` 属性
+- `TransactionInterceptor` 是 `MethodInterceptor`，负责在调用前后开、提交、回滚
+- Advisor 把两者绑在一起，成为 `AbstractAutoProxyCreator` 的候选拦截器
 
-Spring使用`AopProxy`接口的实现来创建代理：
+拦截逻辑本身在 `TransactionAspectSupport.invokeWithinTransaction`：
 
 ```java
-public interface AopProxy {
-    Object getProxy();
-    Object getProxy(@Nullable ClassLoader classLoader);
+protected Object invokeWithinTransaction(Method method, @Nullable Class<?> targetClass,
+        final InvocationCallback invocation) throws Throwable {
+    TransactionAttributeSource tas = getTransactionAttributeSource();
+    final TransactionAttribute txAttr = (tas != null ? tas.getTransactionAttribute(method, targetClass) : null);
+    final PlatformTransactionManager tm = determineTransactionManager(txAttr);
+    // 开启事务 → invocation.proceed() → 按返回/异常提交或回滚
 }
 ```
 
-根据目标对象是否实现接口，Spring会选择使用JDK动态代理或CGLIB：
+### 事务不生效的条件
 
-#### JdkDynamicAopProxy
+| 场景 | 原因 |
+|---|---|
+| 同类内部调用 | 不经过代理，拦截器链不执行 |
+| 方法为 private 或 final | 代理无法覆盖，CGLIB 也无法重写 final |
+| 异常被 try-catch 吞掉 | 拦截器看不到异常，按正常返回提交 |
+| 抛出受检异常 | 默认只对 `RuntimeException` 和 `Error` 回滚 |
+
+第四点要 `@Transactional(rollbackFor = Exception.class)` 显式声明。另外 `propagation = REQUIRES_NEW` 会真的开新连接，在已有事务里调用要留意连接池耗尽。
+
+## 四、Spring MVC 请求链路
+
+`DispatcherServlet.doDispatch` 的主干只有四步：
 
 ```java
-final class JdkDynamicAopProxy implements AopProxy, InvocationHandler {
-    // ... 其他代码
-
-    @Override
-    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        MethodInvocation invocation;
-        Object oldProxy = null;
-        boolean setProxyContext = false;
-
-        TargetSource targetSource = this.advised.targetSource;
-        Object target = null;
-
-        try {
-            // ... 省略了一些检查和特殊处理
-
-            Object retVal;
-
-            if (this.advised.exposeProxy) {
-                oldProxy = AopContext.setCurrentProxy(proxy);
-                setProxyContext = true;
-            }
-
-            target = targetSource.getTarget();
-            Class<?> targetClass = (target != null ? target.getClass() : null);
-
-            List<Object> chain = this.advised.getInterceptorsAndDynamicInterceptionAdvice(method, targetClass);
-
-            if (chain.isEmpty()) {
-                Object[] argsToUse = AopProxyUtils.adaptArgumentsIfNecessary(method, args);
-                retVal = AopUtils.invokeJoinpointUsingReflection(target, method, argsToUse);
-            }
-            else {
-                invocation = new ReflectiveMethodInvocation(proxy, target, method, args, targetClass, chain);
-                retVal = invocation.proceed();
-            }
-
-            Class<?> returnType = method.getReturnType();
-            if (retVal != null && retVal == target &&
-                    returnType != Object.class && returnType.isInstance(proxy) &&
-                    !RawTargetAccess.class.isAssignableFrom(method.getDeclaringClass())) {
-                retVal = proxy;
-            }
-            return retVal;
-        }
-        finally {
-            if (target != null && !targetSource.isStatic()) {
-                targetSource.releaseTarget(target);
-            }
-            if (setProxyContext) {
-                AopContext.setCurrentProxy(oldProxy);
-            }
-        }
-    }
+protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    mappedHandler = getHandler(processedRequest);              // 1 由 HandlerMapping 定位处理器
+    HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());  // 2 选适配器
+    mv = ha.handle(processedRequest, response, mappedHandler.getHandler());  // 3 执行
+    processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);  // 4 渲染
 }
 ```
 
-#### CglibAopProxy
+- `HandlerMapping` 负责 URL → 处理器，`RequestMappingHandlerMapping` 处理注解式 Controller
+- `HandlerAdapter` 负责调用方式的差异，`RequestMappingHandlerAdapter` 里跑参数解析（`HandlerMethodArgumentResolver`）和返回值处理（`HandlerMethodReturnValueHandler`）
+- `ViewResolver` 只在返回视图名时参与；`@ResponseBody` 走 `HttpMessageConverter`，不经过视图解析
 
-```java
-class CglibAopProxy implements AopProxy, Serializable {
-    // ... 其他代码
+第 4 步之前还会执行 `HandlerInterceptor` 的 `preHandle` / `postHandle` / `afterCompletion`，异常最终落到 `HandlerExceptionResolver`，`@ControllerAdvice` 的 `@ExceptionHandler` 就在这一环被调用。
 
-    @Override
-    public Object getProxy(@Nullable ClassLoader classLoader) {
-        // ... 省略了一些准备工作
+## 相关阅读
 
-        Enhancer enhancer = createEnhancer();
-        if (classLoader != null) {
-            enhancer.setClassLoader(classLoader);
-            if (classLoader instanceof SmartClassLoader &&
-                    ((SmartClassLoader) classLoader).isClassReloadable(proxySuperClass)) {
-                enhancer.setUseCache(false);
-            }
-        }
-        enhancer.setSuperclass(proxySuperClass);
-        enhancer.setInterfaces(AopProxyUtils.completeProxiedInterfaces(this.advised));
-        enhancer.setNamingPolicy(SpringNamingPolicy.INSTANCE);
-        enhancer.setStrategy(new ClassLoaderAwareGeneratorStrategy(classLoader));
+- [Spring Boot 自动配置与启动流程](/backend/springBoot)：自动配置与启动流程如何建立在容器之上
+- [JNA：Java 调用原生库的实践](/backend/jna)：需要调原生库时的 JNI/JNA 选择
+- [Redis 原理与高可用方案](/backend/redis)：Spring 缓存抽象背后的数据结构
+- [Netty 的事件循环、Pipeline 与零拷贝](/backend/netty)：Reactor 模型在 Netty 里的落地
 
-        Callback[] callbacks = getCallbacks(rootClass);
-        Class<?>[] types = new Class<?>[callbacks.length];
-        for (int x = 0; x < types.length; x++) {
-            types[x] = callbacks[x].getClass();
-        }
-        enhancer.setCallbackFilter(new ProxyCallbackFilter(
-                this.advised.getConfigurationOnlyCopy(), this.fixedInterceptorMap, this.fixedInterceptorOffset));
-        enhancer.setCallbackTypes(types);
-
-        return createProxyClassAndInstance(enhancer, callbacks);
-    }
-
-    // ... 其他方法
-}
-```
-
-## 3. 事务管理：声明式事务的实现
-
-Spring的事务管理主要通过AOP实现,核心类位于`org.springframework.transaction`包中。
-
-### 3.1 TransactionInterceptor
-
-`TransactionInterceptor`是实现声明式事务的关键:
-
-```java
-public class TransactionInterceptor extends TransactionAspectSupport implements MethodInterceptor, Serializable {
-    @Override
-    public Object invoke(MethodInvocation invocation) throws Throwable {
-        Class<?> targetClass = (invocation.getThis() != null ? AopUtils.getTargetClass(invocation.getThis()) : null);
-        return invokeWithinTransaction(invocation.getMethod(), targetClass, invocation::proceed);
-    }
-}
-```
-
-### 3.2 TransactionAspectSupport
-
-`TransactionAspectSupport`包含了事务管理的核心逻辑:
-
-```java
-public abstract class TransactionAspectSupport implements BeanFactoryAware, InitializingBean {
-    protected Object invokeWithinTransaction(Method method, @Nullable Class<?> targetClass,
-            final InvocationCallback invocation) throws Throwable {
-        
-        TransactionAttributeSource tas = getTransactionAttributeSource();
-        final TransactionAttribute txAttr = (tas != null ? tas.getTransactionAttribute(method, targetClass) : null);
-        final PlatformTransactionManager tm = determineTransactionManager(txAttr);
-
-        // ... 事务执行逻辑
-    }
-    
-    // ... 其他方法
-}
-```
-
-## 4. SpringMVC：Web应用的核心实现
-
-SpringMVC的核心实现位于`org.springframework.web.servlet`包中。
-
-### 4.1 DispatcherServlet
-
-`DispatcherServlet`是SpringMVC的核心,负责请求的分发:
-
-```java
-public class DispatcherServlet extends FrameworkServlet {
-    @Override
-    protected void doService(HttpServletRequest request, HttpServletResponse response) throws Exception {
-        // ... 请求预处理
-        try {
-            doDispatch(request, response);
-        }
-        finally {
-            // ... 请求后处理
-        }
-    }
-
-    protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
-        HttpServletRequest processedRequest = request;
-        HandlerExecutionChain mappedHandler = null;
-        
-        // 1. 确定处理器
-        mappedHandler = getHandler(processedRequest);
-        
-        // 2. 确定处理器适配器
-        HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
-        
-        // 3. 执行处理器
-        mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
-        
-        // 4. 视图解析
-        processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);
-    }
-    
-    // ... 其他方法
-}
-```
-
-### 4.2 HandlerMapping
-
-`HandlerMapping`负责根据请求找到对应的处理器:
-
-```java
-public interface HandlerMapping {
-    @Nullable
-    HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception;
-}
-```
-
-### 4.3 ViewResolver
-
-`ViewResolver`负责解析视图名称:
-
-```java
-public interface ViewResolver {
-    @Nullable
-    View resolveViewName(String viewName, Locale locale) throws Exception;
-}
-```
-
-## 总结
-
-通过深入分析Spring的源码,我们可以看到框架的核心组件是如何协同工作的。IoC容器通过`BeanFactory`和`ApplicationContext`管理对象生命周期,AOP利用动态代理实现横切关注点的模块化,声明式事务借助AOP实现透明的事务管理,而SpringMVC则通过`DispatcherServlet`统一处理Web请求。

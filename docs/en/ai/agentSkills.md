@@ -1,7 +1,7 @@
 ---
 isTimeLine: true
 title: "Getting Started with AI Agent Skills: From Concepts to Runnable Skill Packages"
-description: Explains how Agent Skills, tool calling, and MCP divide responsibilities; describes the SKILL.md directory structure, frontmatter fields, and three-tier progressive loading mechanism; provides two ready-to-run skill examples—committing code and checking the weather—plus debugging methods and a troubleshooting checklist for common pitfalls.
+description: Explains the division of responsibilities between Agent Skills, tool calling, and MCP; describes the SKILL.md directory structure, frontmatter fields, and three-level progressive loading mechanism; provides two ready-to-run skill examples—committing code and querying weather—plus debugging methods and a troubleshooting checklist for common pitfalls.
 date: 2026-01-24
 updated: 2026-10-31
 tags:
@@ -14,35 +14,35 @@ categories:
 head:
 - - meta
   - name: keywords
-    content: AI Agent,Agent Skills,SKILL.md,LLM,MCP,Model Context Protocol,Claude Code,Tool Calling,Prompt Engineering,Progressive loading
-translatedFrom: c7cf4611eed52cd7
+    content: AI Agent,Agent Skills,SKILL.md,LLM,MCP,Model Context Protocol,Claude Code,Tool calls,Prompt engineering,Progressive Loading
+translatedFrom: ff402310d22809ef
 ---
-# Getting Started with AI Agent Skills: From Concepts to a Runnable Skill Package
+# Getting Started with AI Agent Skills: From Concept to a Runnable Skill Package
 
-The same model, when asked “how do I commit code?” in a web chat, will only give you three git commands; when you say “help me commit” in Claude Code, it will first run `git status`, read the diff, go through the project’s commit history to learn its style, then write the message and ask you to confirm. The difference is not in the model weights, but in that `SKILL.md` in the working directory.
+The same model, when asked "how do I commit code?" in a web chat, will only give you three git commands; in Claude Code, say "help me commit," and it will first run `git status`, read the diff, dig through the project's commit history to learn the style, then write a good message and ask you to confirm. The difference isn't in the model weights, but in that `SKILL.md` in the working directory.
 
-Below, I’ll cover the division of labor between Skills, tools, and MCP; the structure and loading mechanism of SKILL.md; two examples you can run directly; and lessons from debugging and pitfalls.
+Below we cover the division of labor between Skills, tools, and MCP, the structure and loading mechanism of SKILL.md, two directly runnable examples, and lessons from debugging and pitfalls.
 
-## TL;DR
+## Key Takeaways
 
-- **Skills are instruction manuals for the model**, written in Markdown; no code changes or training required—drop them into a directory and they take effect
+- **Skills are instruction manuals for the model**, written in Markdown; no code changes or training required—put them in a directory and they take effect
 - **Loading is tiered**: normally only the name and description take up a few dozen tokens; the body is read only when a task matches, and bundled scripts are read only when needed
 - **One Skill per directory**; `SKILL.md` must have `name` and `description`, and other files are referenced as needed
-- **If it’s written poorly, it’s usually the description that’s broken**: `description` determines whether it gets triggered, and the body determines whether it does the right thing after being triggered
+- **If it's poorly written, it's usually the description that's broken**: `description` determines whether it gets triggered, and the body determines whether it does the right thing after being triggered
 
-## 1. Concepts: The Division of Labor Between Three Layers
+## 1. Concepts: Division of Labor Across Three Layers
 
-What the model itself can do is reason and generate text. To make it “able to do” things, three things need to work together:
+What the model can do on its own is reason and generate text. To make it "able to do" something, three things need to work together:
 
 | Layer | Responsibility |
 |---|---|
-| Tool calling | Provides atomic actions, such as reading files and running commands |
+| Tool invocation | Provides atomic actions, such as reading files and running commands |
 | MCP | Connects external systems through a unified protocol |
-| Skills | Teaches the model how to combine actions to complete a task |
+| Skills | Teach the model how to combine actions to accomplish a task |
 
-Tools are the hands, MCP is the interface, and Skills are the operating manual. Without a manual, when faced with the `bash` tool, the model can only improvise, and the same task takes a different path every time; with a manual, the process is fixed and the results are reproducible.
+Tools are the hands, MCP is the interface, and Skills are the operating manual. Without a manual, when facing the `bash` tool, the model can only improvise, and the same task takes a different path each time; with a manual, the process is fixed and results are reproducible.
 
-Specifically for the “commit code” task:
+Specifically for the "commit code" task:
 
 ```
 没有 Skill：
@@ -53,21 +53,21 @@ Specifically for the “commit code” task:
   → 生成 message → 用户确认 → git add + git commit
 ```
 
-The difference is that the knowledge is written in a file, rather than being pieced together on the fly with prompts every time.
+The difference is that the knowledge is written in a file rather than pieced together ad hoc with prompts each time.
 
-## 2. Why Use Files Instead of Stuffing It into the System Prompt
+## 2. Why Files Instead of Stuffing It into the System Prompt
 
-The system prompt is sent every turn; the instructions for a complex process can easily run to thousands of tokens, so the always-on cost is high, and ten processes stacked together will interfere with one another.
+The system prompt is sent every turn. Instructions for a complex process can easily run to thousands of tokens, making the always-on cost high, and ten processes stacked together will interfere with one another.
 
-Skills solve this problem with “read on demand”:
+Skills solve this with "read on demand":
 
-| Stage | Content Loaded | Rough Cost |
+| Stage | Loaded Content | Approximate Cost |
 |---|---|---|
 | Startup | Names + descriptions of all skills | A few dozen tokens each |
-| Task match | The body of that skill’s `SKILL.md` | Thousands of tokens |
-| When execution requires it | Bundled scripts, templates, reference docs | Read per file |
+| Task match | The body of that skill's `SKILL.md` | Several thousand tokens |
+| When needed during execution | Bundled scripts, templates, reference docs | Read per file |
 
-This way, even with twenty skills installed, the context won’t blow up; only the one actually used is expanded. The cost is an extra round trip for reading a file, and the model must be able to judge from the description whether it “should be used.”
+This way, even with twenty skills installed, the context won't be blown up; only the one actually used is expanded. The cost is an extra file-read round trip, and the model must be able to judge from the description whether it "should be used."
 
 ## 3. Loading Flow
 
@@ -83,7 +83,7 @@ graph TD
     G --> H
 ```
 
-The description clearly states “when to use it,” which determines the judgment at step C; the body clearly states “how to do it,” which determines the quality of H. Neither requires special syntax—just natural language plus the necessary command examples.
+A clear description of "when to use it" determines the judgment at step C; a clear body of "how to do it" determines the quality at H. Neither requires special syntax—just natural language plus necessary command examples.
 
 ## 4. Writing Your First Skill
 
@@ -97,7 +97,7 @@ Directory structure:
     └── references/       # 可选：长文档
 ```
 
-`SKILL.md` consists of frontmatter and a body:
+`SKILL.md` consists of frontmatter and body:
 
 ```markdown
 ---
@@ -129,16 +129,16 @@ description: 按项目规范生成 commit message 并提交。当用户要求提
 
 Key points:
 
-- `name` uses lowercase with hyphens and matches the directory name
-- `description` states the trigger conditions, includes the exact words users might say, and is kept within a few hundred characters
-- Write the steps in the body using imperative sentences, and include one input/output example—this is more effective than adjectives
-- When you need to restrict tools, declare it with `allowed-tools`, for example allowing only `Bash(git:*)` and `Read`
+- `name` uses lowercase and hyphens, matching the directory name
+- `description` states the trigger conditions, includes phrases users might actually say, and is kept within a few hundred characters
+- Write steps in the body using imperative sentences, and include one input/output example—more effective than adjectives
+- When tool restrictions are needed, declare them with `allowed-tools`, for example allowing only `Bash(git:*)` and `Read`
 
-Project-level skills go under `.claude/skills/` in the repository, are committed along with the code, and are shared by the team; personal skills go in `~/.claude/skills/` and are available across projects.
+Project-level skills go under the repository's `.claude/skills/`, are committed along with the code, and are shared by the team; personal skills go in `~/.claude/skills/` and are available across projects.
 
-## 5. Hands-On: A Weather Query Skill
+## 5. Hands-on: Weather Query Skill
 
-A skill with scripts better illustrates the value of “read on demand”:
+A skill with scripts better illustrates the value of "read on demand":
 
 ```
 weather-helper/
@@ -190,7 +190,7 @@ allowed-tools: Bash(python3:*), Read
 - 超时：重试一次，仍失败则告知用户接口不可用，不要编造天气
 ```
 
-The reason `description` includes “bring an umbrella” and “what should I wear” is that users really ask that way; writing only “query the weather” would miss these phrasings.
+The `description` includes "bring an umbrella" and "what should I wear" because users really do ask that way; writing only "query weather" would miss these phrasings.
 
 ## 6. Debugging
 
@@ -204,8 +204,8 @@ OPENWEATHER_API_KEY=xxx python3 scripts/weather.py 杭州
 
 Troubleshooting order:
 
-1. **Not triggered** → Add the user’s exact words to `description`, and restart the session so the skill list is rescanned
-2. **Triggered but the steps go off track** → The steps in the body are not specific enough; add commands and decision conditions
+1. **Not triggered** → Add the user's exact wording to `description`, and restart the session so the skill list is rescanned
+2. **Triggered but steps go off track** → The body steps are not specific enough; add commands and decision conditions
 3. **Error** → First run the script manually to determine whether the problem is in the script or in how it is invoked
 4. **Verbose output** → Specify the output format and length in the body
 
@@ -216,29 +216,29 @@ After changing a skill file, you must restart the session for it to reload—thi
 | Principle | Description |
 |---|---|
 | Single responsibility | One skill does only one thing; split mixed processes |
-| Specific description | Write the exact words users will say, not abstract goals |
-| Executable steps | Each step corresponds to a command or a clear decision |
+| Specific descriptions | Write the exact words users would say, not abstract goals |
+| Executable steps | Each step corresponds to one command or one clear decision |
 | Examples first | One input/output example beats three paragraphs of explanation |
 
 ## 8. Common Pitfalls
 
-- **Stuffing the entire project documentation into SKILL.md**: An overly long body eats into the context; put long documents in `references/` and keep only an index and key conclusions in the body
+- **Stuffing the entire project documentation into SKILL.md**: An overly long body takes up context; put long documents in `references/` and keep only the index and key conclusions in the body
 - **Writing the description as a feature introduction**: `description` is used by the model for routing decisions; trigger words matter more than adjectives
-- **Scripts without error handling**: Network failures and missing keys must have clear messages; otherwise the model will make up results on its own
-- **Permissions too broad**: Give `allowed-tools` only what this process requires; if `Read` is enough, don’t give `Bash`
-- **Same-named skills scattered across multiple directories**: When project-level and personal-level skills share a name, behavior is nondeterministic; confirm the loading priority before renaming
-- **Forgetting version control**: `~/.claude/skills/` should also be tracked in git, so you don’t have to rewrite them when switching machines
+- **Scripts without error handling**: Network failures and missing keys must produce clear messages; otherwise the model will make up results
+- **Granting overly broad permissions**: Give `allowed-tools` only what this process requires; if `Read` suffices, don't grant `Bash`
+- **Skills with the same name spread across multiple directories**: When project-level and personal-level skills share a name, behavior is undefined; confirm loading priority before renaming
+- **Forgetting version control**: `~/.claude/skills/` should also go into git so you don't have to rewrite it when switching machines
 
-## 9. Getting and Sharing
+## 9. Acquiring and Sharing
 
-For ready-made skills, first check the official repository and community collections; installation usually means copying the directory to `~/.claude/skills/`:
+For ready-made skills, start with the official repository and community collections; installation usually means copying the directory to `~/.claude/skills/`:
 
 ```bash
 git clone https://github.com/user/awesome-skills.git
 cp -r awesome-skills/<skill-name> ~/.claude/skills/
 ```
 
-Publish skills you write using the structure below; others can use them by copying the directory:
+Publish your own skills with the following structure so others can use them by copying the directory:
 
 ```markdown
 # SKILL.md frontmatter 至少包含
@@ -248,9 +248,14 @@ description: 做什么 + 什么时候用
 
 Add three sections to the README: dependencies, configuration items (environment variables), and a minimal example. Add a license as needed; MIT is the most common.
 
+## Related Reading
+
+- [Hermes Agent: A Self-Hostable Open-Source AI Agent](/en/ai/hermesAgent): The host environment for running these skills
+- [OpenClaw Open-Source AI Assistant Deployment Guide](/en/ai/openclaw): A complete example of integrating with a messaging platform
+
 ## References
 
-- [Claude Code documentation](https://docs.anthropic.com)
-- [Anthropic: Introduction to Agent Skills](https://www.anthropic.com/news/agent-skills)
+- [Claude Code Documentation](https://docs.anthropic.com)
+- [Anthropic: Introducing Agent Skills](https://www.anthropic.com/news/agent-skills)
 - [Model Context Protocol](https://modelcontextprotocol.io)
-- [MCP official server list](https://github.com/modelcontextprotocol/servers)
+- [MCP Official Server List](https://github.com/modelcontextprotocol/servers)

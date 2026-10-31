@@ -228,7 +228,8 @@ WAIT 1 0
 
 - [Kafka 存储与复制机制](/backend/kafka)：缓存之外的异步消息路径
 - [Spring Boot 自动配置与启动流程](/backend/springBoot)：缓存接入与失效策略的落地位置
-- [深入 Spring 源码解析](/backend/spring)：缓存与容器 Bean 的关系
+- [Spring 容器、AOP 与声明式事务的实现](/backend/spring)：缓存与容器 Bean 的关系
+- [AES 与 RSA：对称与非对称加密怎么选](/security/aes)：缓存里敏感数据的加密方式
 
 ## 参考
 

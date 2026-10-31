@@ -2,7 +2,7 @@
 isTimeLine: true
 sticky: 2
 title: Spring Boot Auto-Configuration and Startup Process
-description: The auto-configuration registration and filtering mechanism, the order in which conditional annotations take effect, key extension points in the startup process, and troubleshooting common failures of auto-configuration after switching registration files from Spring Boot 2.x to 3.x.
+description: Auto-configuration registration and filtering mechanisms, the effective order of condition annotations, key extension points in the startup process, and troubleshooting common failures after switching auto-configuration registration files from Spring Boot 2.x to 3.x.
 date: 2023-07-15
 updated: 2026-10-31
 tags:
@@ -16,23 +16,23 @@ categories:
 head:
 - - meta
   - name: keywords
-    content: Spring Boot,Auto-configuration,Conditional annotations,Startup Process,AutoConfiguration.imports,Spring Boot 3
-translatedFrom: c58db3394f0f4bc6
+    content: Spring Boot,Auto-configuration,Conditional annotation,Startup process,AutoConfiguration.imports,Spring Boot 3
+translatedFrom: 9a8ba9302dd9aff7
 ---
-# Spring Boot Auto-Configuration and Startup Flow
+# Spring Boot Auto-configuration and Startup Flow
 
-Most Spring Boot configuration problems can be traced to condition evaluation in auto-configuration. This article follows the loading order: first the four stages, then the startup flow, and finally common failures.
+When Spring Boot configuration goes wrong, in most cases the cause can be found in the condition evaluations of auto-configuration. This article explains it in load order: first the four stages, then the startup flow, and finally common failures.
 
-## The Four Stages of Auto-Configuration
+## The Four Stages of Auto-configuration
 
-Spring Boot's “zero configuration” is the result of four steps chained together:
+Spring Boot's "zero configuration" is the result of four steps chained together:
 
 1. `@EnableAutoConfiguration` on `@SpringBootApplication` triggers the import
 2. `AutoConfigurationImportSelector` reads all candidate auto-configuration classes
 3. The `@Conditional` family of annotations filters out those that do not meet the conditions
 4. The remaining ones are registered as bean definitions and then instantiated by the container
 
-When troubleshooting “auto-configuration is not taking effect,” confirm each stage in this order; it is much faster than guessing from logs.
+When troubleshooting "auto-configuration does not take effect", confirm segment by segment in this order; it is much faster than guessing from logs.
 
 ## 1. What `@EnableAutoConfiguration` Does
 
@@ -49,20 +49,20 @@ public @interface EnableAutoConfiguration {
 
 The key is `@Import(AutoConfigurationImportSelector.class)`: it implements `DeferredImportSelector` and is processed only at the very end, so **auto-configuration classes are always registered after the user's own configuration classes**.
 
-This order determines override behavior: user-declared `@Bean`s enter the container first; when `@ConditionalOnMissingBean` in auto-configuration is evaluated later, it finds they already exist and skips. Therefore, “why did my Bean override the auto-configuration?” and “why is the auto-configuration not taking effect?” are actually two sides of the same mechanism.
+This order determines override behavior: user-declared `@Bean`s enter the container first, and when `@ConditionalOnMissingBean` in auto-configuration is evaluated and finds one already present, it skips. So "why did my bean override the auto-configuration" and "why did auto-configuration not take effect" are actually two sides of the same mechanism.
 
 ### 1.1 Where Candidate Configuration Classes Come From (Key Difference Between 2.x and 3.x)
 
 | Version | Registration File |
 |---|---|
-| Spring Boot 2.x | `META-INF/spring.factories`, with the key `org.springframework.boot.autoconfigure.EnableAutoConfiguration` |
+| Spring Boot 2.x | `META-INF/spring.factories`, with key `org.springframework.boot.autoconfigure.EnableAutoConfiguration` |
 | Spring Boot 3.x | `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`, one class name per line |
 
-In a 3.x project, continuing to use the 2.x `spring.factories` approach makes auto-configuration **silently fail to take effect**—there is no error, only missing beans. This is the most common problem when upgrading or building a custom starter.
+In a 3.x project, continuing to use the 2.x `spring.factories` approach makes auto-configuration **silently not take effect**—there is no error, only missing beans. This is the most common problem when upgrading or building your own starter.
 
-Note that `spring.factories` itself is not deprecated; extension points such as `ApplicationListener` and `EnvironmentPostProcessor` are still registered through it. Only auto-configuration classes have moved.
+Note that `spring.factories` itself is not deprecated; extension points such as `ApplicationListener` and `EnvironmentPostProcessor` are still registered with it. Only auto-configuration classes have moved.
 
-### 1.2 Conditional Annotations and Evaluation Order
+### 1.2 Conditional Annotations and Effective Order
 
 ```java
 @AutoConfiguration
@@ -77,16 +77,16 @@ public class DataSourceAutoConfiguration {
 }
 ```
 
-Common conditional annotations:
+Commonly used conditional annotations:
 
 | Annotation | Meaning |
 |---|---|
-| `@ConditionalOnClass` | Takes effect only when the specified class is present on the classpath |
+| `@ConditionalOnClass` | Takes effect only when the specified class exists on the classpath |
 | `@ConditionalOnMissingBean` | Takes effect only when no bean of that type exists in the container |
 | `@ConditionalOnProperty` | Takes effect only when the configuration property matches |
 | `@ConditionalOnWebApplication` | Takes effect only in a web application |
 
-`@ConditionalOnMissingBean` evaluates based on **currently registered bean definitions**, so the order between auto-configuration classes directly affects the result. Use these three annotations to control order:
+The evaluation of `@ConditionalOnMissingBean` depends on **currently registered bean definitions**, so the order between auto-configuration classes directly affects the result. Use these three annotations to control order:
 
 ```java
 @AutoConfiguration(after = DataSourceAutoConfiguration.class)
@@ -94,7 +94,7 @@ Common conditional annotations:
 @AutoConfigureOrder(Ordered.HIGHEST_PRECEDENCE)  // 数值越小越早
 ```
 
-If two auto-configuration classes both declare a bean of the same type and neither adds `@ConditionalOnMissingBean`, the result depends on order, which can easily lead to startup errors or behavior that drifts across versions.
+If two auto-configuration classes both declare a bean of the same type and neither has `@ConditionalOnMissingBean`, the result depends on order and can easily become a startup error or behavior that drifts across versions.
 
 ## 2. Startup Flow
 
@@ -119,12 +119,12 @@ public ConfigurableApplicationContext run(String... args) {
 
 Several key points:
 
-- **During Environment preparation**, `EnvironmentPostProcessor` can be used to inject configuration dynamically (encrypted configuration and configuration centers hook in here)
-- **`refresh()` is when singleton beans are actually created**; `@PostConstruct`, `InitializingBean`, and `ContextRefreshedEvent` occur after or during this
-- **`ApplicationRunner` and `CommandLineRunner` are sorted together by `@Order` and executed interleaved**, not one type completely before the other
-- Since 2.6, circular references are prohibited by default. When an old project reports `BeanCurrentlyInCreationException` at startup, `spring.main.allow-circular-references=true` only stops the bleeding; the cycle is still there
+- **During the Environment preparation phase**, `EnvironmentPostProcessor` can be used to dynamically inject configuration (encrypted configuration and configuration centers hook in here)
+- **`refresh()` is the moment singleton beans are actually created**; `@PostConstruct`, `InitializingBean`, and `ContextRefreshedEvent` all occur after or within it
+- **`ApplicationRunner` and `CommandLineRunner` are mixed and sorted by `@Order`**, not one category finishing before the other starts
+- Circular references have been prohibited by default since 2.6. When an old project fails to start with `BeanCurrentlyInCreationException`, `spring.main.allow-circular-references=true` only stops the bleeding; the cycle is still there
 
-### 2.1 How to Locate Startup Time Consumption
+### 2.1 How to Locate Startup Time
 
 ```yaml
 management:
@@ -137,7 +137,7 @@ management:
         include: startup
 ```
 
-After adding `spring-boot-starter-actuator`, access `/actuator/startup` to get the time consumed by each startup step. This is more convenient than scattering `System.nanoTime()` calls everywhere.
+After adding `spring-boot-starter-actuator`, access `/actuator/startup` to get the time consumed by each startup step. This is easier than scattering `System.nanoTime()` everywhere.
 
 ## 3. Core Annotations
 
@@ -154,19 +154,19 @@ public @interface SpringBootApplication {
 }
 ```
 
-Equivalent to the combination of three annotations, and also supports properties such as `scanBasePackages` and `exclude` to override default behavior.
+It is equivalent to a combination of three annotations, and also supports properties such as `scanBasePackages` and `exclude` to override default behavior.
 
 ### Proxy Semantics of `@Configuration`
 
-`@Configuration(proxyBeanMethods = true)` (the default) generates a subclass with CGLIB to ensure that the same `@Bean` method returns the same instance when called multiple times. When set to `false`, no proxy is generated, and direct calls between methods will actually execute the method body multiple times—this is the common reason why “I clearly wrote `@Bean`, but it creates a new instance every time.”
+`@Configuration(proxyBeanMethods = true)` (the default) uses CGLIB to generate a subclass, ensuring that the same `@Bean` method returns the same instance when called multiple times. When set to `false`, no proxy is generated, and direct calls between methods will actually execute the method body multiple times—this is a common reason for "I clearly wrote `@Bean` but a new one is created every time."
 
-The difference between `@Configuration` and `@Component` lies in this proxy layer: the latter does not have it.
+The difference between `@Configuration` and `@Component` lies in this layer of proxying: the latter does not have it.
 
 ## 4. Practical Tips
 
-1. **Custom starter**: In 3.x, write the auto-configuration class to `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`, and annotate the class with `@AutoConfiguration` instead of bare `@Configuration`
-2. **Exclude a single auto-configuration**: `@SpringBootApplication(exclude = DataSourceAutoConfiguration.class)`, or the property `spring.autoconfigure.exclude`
-3. **View active auto-configurations**: Start with `--debug`, and the log prints `Positive matches` / `Negative matches`; the latter includes the specific reason for non-matching
+1. **Custom starter**: Under 3.x, write auto-configuration classes to `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`, and annotate the class with `@AutoConfiguration` instead of bare `@Configuration`
+2. **Exclude a single auto-configuration**: `@SpringBootApplication(exclude = DataSourceAutoConfiguration.class)`, or the configuration property `spring.autoconfigure.exclude`
+3. **View active auto-configurations**: Start with `--debug`, and the log will print `Positive matches` / `Negative matches`, with the latter including the specific reason for not matching
 4. **Configuration priority (low to high)**: `application.yml` → profile-specific file → environment variables → command-line arguments
 5. **Custom Banner**: `resources/banner.txt`
 
@@ -174,14 +174,21 @@ The difference between `@Configuration` and `@Component` lies in this proxy laye
 
 | Symptom | Common Cause |
 |---|---|
-| Auto-configuration not loaded at all | The 3.x project still writes it in `spring.factories` |
-| Auto-configuration loaded but bean missing | Conditions not met; use `--debug` to see the reason in `Negative matches` |
-| The bean you wanted to override was not overridden | Different method names cause two instances to coexist, or the auto-configuration class lacks `@ConditionalOnMissingBean` |
-| Startup reports circular dependency | Prohibited by default since 2.6; find the dependency cycle instead of disabling the check |
-| Startup is slow but you cannot see where | Enable the actuator startup endpoint to see step timings |
+| Auto-configuration is not loaded at all | A 3.x project still writes it in `spring.factories` |
+| Auto-configuration is loaded but the bean does not exist | Conditions are not met; use `--debug` to see the reason in `Negative matches` |
+| The bean you want to override was not overridden successfully | Different method names cause two instances to coexist, or the auto-configuration class lacks `@ConditionalOnMissingBean` |
+| Startup reports circular dependency | Prohibited by default in 2.6+; find the dependency cycle first instead of disabling the check |
+| Startup is slow but you cannot see where | Enable the startup endpoint of actuator to see step timings |
+
+## Related Reading
+
+- [Spring Container, AOP, and Declarative Transaction Implementation](/en/backend/spring): Container, AOP, and Bean Lifecycle
+- [Docker from Basics to Practice](/en/devops/docker): Building and Running Application Images
+- [Kafka Storage and Replication Mechanisms](/en/backend/kafka): Message-Driven Services and Configuration
+- [AES vs. RSA: How to Choose Between Symmetric and Asymmetric Encryption](/en/security/aes): How to Handle Keys and Sensitive Fields in Configuration
 
 ## References
 
-- [Official Spring Boot auto-configuration documentation](https://docs.spring.io/spring-boot/reference/using/auto-configuration.html)
+- [Spring Boot Auto-configuration Official Documentation](https://docs.spring.io/spring-boot/reference/using/auto-configuration.html)
 - [Spring Boot 3.0 Migration Guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-3.0-Migration-Guide)
 - [Spring Framework: Container Extension Points](https://docs.spring.io/spring-framework/reference/core/beans/factory-extension.html)

@@ -200,8 +200,8 @@ int result = (int) add.invokeExact(1, 2);
 
 ## 相关阅读
 
-- [Netty 高性能网络框架](/backend/netty)：自定义协议与零拷贝
-- [深入 Spring 源码解析](/backend/spring)：在 Spring 项目里封装 native 调用
+- [Netty 的事件循环、Pipeline 与零拷贝](/backend/netty)：自定义协议与零拷贝
+- [Spring 容器、AOP 与声明式事务的实现](/backend/spring)：在 Spring 项目里封装 native 调用
 - [AES 与 RSA：对称与非对称加密怎么选](/security/aes)：加密库的调用与模式选择
 
 ## 参考

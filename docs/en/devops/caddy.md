@@ -1,11 +1,11 @@
 ---
 isTimeLine: true
 title: "Getting Started with Caddy: Automatic HTTPS and Reverse Proxy"
-description: Caddy v2 installation, basic Caddyfile syntax, and reverse proxy configuration. Focuses on the trigger conditions for automatic HTTPS, why the tls directive is unnecessary, why rate_limit causes an error at startup, and the correct usage of validate/reload.
+description: Installing Caddy v2, Caddyfile basic syntax, and reverse proxy configuration. Focuses on what triggers automatic HTTPS, why the tls directive isn't needed, why rate_limit throws an error at startup, and correct usage of validate/reload.
 date: 2024-05-15
 updated: 2026-10-31
 tags:
-- Web Server
+- Web server
 - Caddy
 - HTTPS
 - Reverse proxy
@@ -17,21 +17,21 @@ head:
 - - meta
   - name: keywords
     content: Caddy,Caddyfile,Automatic HTTPS,Reverse proxy,caddy validate,caddy reload,encode gzip
-translatedFrom: 91f2d5ce06a9d421
+translatedFrom: 4ae6fae516680cac
 ---
 # Getting Started with Caddy: Automatic HTTPS and Reverse Proxy
 
-Caddy automatically obtains and renews certificates by default, so it works once the domain is configured. The prerequisites are that ports 80/443 are reachable from the public internet and the required modules are actually compiled into the binary—these two points determine whether following the tutorial will get stuck.
+Caddy automatically requests and renews certificates by default; once the domain is configured, it works. The prerequisites are that ports 80/443 are publicly accessible and the required modules are actually compiled into the binary—these two points determine whether following a tutorial will get stuck.
 
-## How Caddy differs from other web servers
+## How Caddy Differs from Other Web Servers
 
-Caddy is written in Go. The biggest difference from Nginx/Apache is its **default behavior**:
+Caddy is written in Go, and its biggest difference from Nginx/Apache is its **default behavior**:
 
-- Automatically obtains and renews certificates after the domain is configured; no extra TLS directives are needed
-- The config file is the Caddyfile (native JSON format is also available); common requirements can be expressed in a few dozen lines
-- A single binary; plugins are selected at compile time (this differs from Nginx's modular approach and leads to the “directive exists but is unavailable” problem; see 6.3)
+- After the domain is configured, it automatically requests and renews certificates, with no extra TLS directives needed
+- The configuration file is the Caddyfile (there is also a native JSON format); dozens of lines can express common requirements
+- A single binary, with plugins selected at compile time (this differs from Nginx's modular approach and leads to the "directive exists but is unavailable" issue, see 6.3)
 
-Trade-off: plugins must be custom-compiled; `xcaddy build` is a common operation.
+Trade-off: plugins must be custom-compiled, and `xcaddy build` is a common operation.
 
 ## 1. Installation
 
@@ -59,9 +59,9 @@ go install github.com/caddyserver/caddy/v2/cmd/caddy@latest
 xcaddy build --with github.com/caddyserver/ratelimit
 ```
 
-Note that the old `go get` syntax has not been used to install executables since Go 1.17; `go install ...@version` is the current method.
+Note that the old `go get` usage is no longer used to install executables after Go 1.17; `go install ...@version` is the current method.
 
-## 2. Minimal Caddyfile example
+## 2. Minimal Caddyfile Example
 
 ```caddyfile
 example.com {
@@ -72,25 +72,25 @@ example.com {
 
 Three things: match the domain, set the root directory, and enable static file serving.
 
-`*` here means “match all requests”; it is a path matcher, not a wildcard domain.
+`*` here means "match all requests"; it is a path matcher, not a wildcard domain.
 
-## 3. Automatic HTTPS: when it is triggered
+## 3. Automatic HTTPS: When It Is Triggered
 
-**No `tls` directive is needed.** As long as a domain appears in the Caddyfile (and 80/443 are reachable from the public internet), Caddy will:
+**No `tls` directive is needed.** As long as a domain appears in the Caddyfile (and 80/443 are publicly accessible), Caddy will:
 
 1. Request a certificate from Let's Encrypt or ZeroSSL (ACME)
 2. Automatically complete HTTP-01 or TLS-ALPN-01 validation
-3. Automatically renew before expiration
+3. Automatically renew before expiry
 
 Common situations that cause automatic HTTPS to fail:
 
 | Symptom | Cause |
 |---|---|
-| Stuck at `obtaining certificate` | 80/443 blocked by a firewall or cloud security group |
-| Certificate issued but browser reports a certificate error | Domain DNS does not point to this machine, or the CDN origin configuration in between is incorrect |
-| Certificate application for an internal domain fails | Internal domains cannot complete ACME validation; a DNS-01 challenge or a self-signed certificate is required |
+| Stuck at `obtaining certificate` | 80/443 is blocked by a firewall or cloud security group |
+| Certificate issued successfully but the browser reports a certificate error | Domain DNS does not point to this machine, or the CDN origin configuration in between is incorrect |
+| Intranet domain application fails | Intranet domains cannot complete ACME validation and require a DNS-01 challenge or a self-signed certificate |
 
-Custom certificates (internal network, existing certificates) are the only case that requires `tls`:
+Only custom certificates (intranet, existing certificates) require `tls`:
 
 ```caddyfile
 internal.example.com {
@@ -100,7 +100,7 @@ internal.example.com {
 }
 ```
 
-To use Caddy's self-signed certificate locally/on an internal network:
+To use Caddy self-signed certificates locally/on an intranet:
 
 ```caddyfile
 {
@@ -108,7 +108,7 @@ To use Caddy's self-signed certificate locally/on an internal network:
 }
 ```
 
-## 4. Reverse proxy
+## 4. Reverse Proxy
 
 ```caddyfile
 example.com {
@@ -116,7 +116,7 @@ example.com {
 }
 ```
 
-Multiple backends + load balancing policy:
+Multiple backends + load balancing strategy:
 
 ```caddyfile
 example.com {
@@ -128,15 +128,15 @@ example.com {
 }
 ```
 
-A few practical points for reverse proxy:
+A few practical points about reverse proxy:
 
-- Automatically passes through `X-Forwarded-For` and `X-Forwarded-Proto`; the backend gets the real IP without extra configuration
-- WebSocket is supported automatically; no `Upgrade` header handling is required
-- When the upstream is HTTPS, use `reverse_proxy https://backend:8443`; for self-signed certificates, add `transport http { tls_insecure_skip_verify }` (test environments only)
+- Automatically forwards `X-Forwarded-For` and `X-Forwarded-Proto`; the backend gets the real IP without extra configuration
+- WebSocket is supported automatically; no `Upgrade` header handling is needed
+- When the upstream is HTTPS, use `reverse_proxy https://backend:8443`; for self-signed certificates add `transport http { tls_insecure_skip_verify }` (test environments only)
 
-## 5. Routing and middleware
+## 5. Routing and Middleware
 
-Caddy directives execute in a fixed order (`encode` → `reverse_proxy`, etc. have a built-in order); use `route` when you need to force a custom order:
+Caddy directives execute in a fixed order (`encode` → `reverse_proxy`, etc., have built-in ordering); use `route` when you need to force a custom order:
 
 ```caddyfile
 example.com {
@@ -162,7 +162,7 @@ example.com {
 }
 ```
 
-### 5.2 Common middleware
+### 5.2 Common Middleware
 
 ```caddyfile
 example.com {
@@ -190,7 +190,7 @@ example.com {
 }
 ```
 
-### 5.3 `rate_limit` is not a built-in directive
+### 5.3 `rate_limit` Is Not a Built-in Directive
 
 Writing `rate_limit` directly gives:
 
@@ -198,18 +198,18 @@ Writing `rate_limit` directly gives:
 Error: adapting config using caddyfile: unrecognized directive: rate_limit
 ```
 
-It comes from the third-party plugin `github.com/mholt/caddy-ratelimit` and must be recompiled with `xcaddy build --with github.com/mholt/caddy-ratelimit`. This is the most common reason for “the tutorial works but my machine reports an error”—Caddy's directive set depends on which modules were selected at compile time; `caddy list-modules` lists what the current binary actually contains.
+It comes from the third-party plugin `github.com/mholt/caddy-ratelimit` and must be recompiled with `xcaddy build --with github.com/mholt/caddy-ratelimit`. This is the most common reason for "the tutorial works, but my machine errors"—Caddy's directive set depends on which modules were selected at compile time; `caddy list-modules` can list what the current binary actually has.
 
-## 6. Operational essentials
+## 6. Operations Essentials
 
-### 6.1 Validate before reloading
+### 6.1 Validate First, Then Reload
 
 ```bash
 caddy validate --config /etc/caddy/Caddyfile   # 只校验，不生效
 sudo systemctl reload caddy                    # 平滑重载，不断连接
 ```
 
-Running `restart` directly after modifying the config interrupts connections; `reload` is the zero-downtime approach. `validate` can catch syntax errors before reloading, preventing the service from failing to start.
+Running `restart` directly after changing the configuration interrupts connections; `reload` is the zero-downtime way. `validate` can catch syntax errors before reloading and avoid the service failing to start.
 
 ### 6.2 Formatting
 
@@ -217,17 +217,17 @@ Running `restart` directly after modifying the config interrupts connections; `r
 caddy fmt --overwrite /etc/caddy/Caddyfile
 ```
 
-### 6.3 Check which directives the current binary supports
+### 6.3 Check Which Directives the Current Binary Supports
 
 ```bash
 caddy list-modules | grep -i ratelimit
 ```
 
-When troubleshooting “directive not recognized”, first confirm whether the module exists, then suspect the syntax.
+When troubleshooting "directive not recognized", first confirm whether the module exists, then suspect syntax.
 
 ### 6.4 Admin API
 
-Caddy exposes a configuration API at `localhost:2019`; `caddy reload` actually POSTs the configuration to it:
+Caddy exposes the config API at `localhost:2019`; `caddy reload` actually POSTs the config to it:
 
 ```bash
 curl localhost:2019/config/          # 查看当前生效配置
@@ -236,12 +236,18 @@ curl localhost:2019/metrics          # Prometheus 指标
 
 This endpoint is also the entry point for dynamic configuration in containerized deployments.
 
-## 7. Typical use cases
+## 7. Typical Uses
 
-- **Static sites / blogs**: `root` + `file_server`, fully automatic certificates
-- **Reverse proxy**: expose internal services (panels, APIs, database admin interfaces) to a domain, eliminating the need for a separate Nginx
-- **Local development**: start a server with one line using `caddy file-server --browse`, or use `caddy reverse-proxy --from :80 --to :3000`
-- **Multiple sites coexisting**: write multiple domain blocks in the same Caddyfile; certificates are requested independently for each
+- **Static sites / blogs**: `root` + `file_server`, with fully automatic certificates
+- **Reverse proxy**: expose intranet services (panels, APIs, database admin interfaces) to a domain, eliminating a separate Nginx
+- **Local development**: `caddy file-server --browse` starts a service in one line, or `caddy reverse-proxy --from :80 --to :3000`
+- **Multiple sites coexisting**: multiple domain blocks written in the same Caddyfile, with certificates requested independently
+
+## Related Reading
+
+- [Docker from Beginner to Practice](/en/devops/docker): start services with compose and hand them to Caddy for reverse proxying
+- [Kubernetes Getting Started Guide](/en/devops/k8s): ingress and certificates for multi-replica deployments
+- [Getting Started with Next.js Full-Stack Applications](/en/frontend/nextjs): production deployment methods for frontend services
 
 ## References
 

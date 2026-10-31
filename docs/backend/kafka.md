@@ -192,7 +192,7 @@ fetch.min.bytes=1
 
 - [Redis 原理与高可用方案](/backend/redis)：缓存与消息队列的分工
 - [Spring Boot 自动配置与启动流程](/backend/springBoot)：Spring 侧的消费者配置
-- [Netty 高性能网络框架](/backend/netty)：高吞吐场景下的自定义网络协议
+- [Netty 的事件循环、Pipeline 与零拷贝](/backend/netty)：高吞吐场景下的自定义网络协议
 
 ## 参考
 

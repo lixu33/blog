@@ -1,7 +1,7 @@
 ---
 isTimeLine: true
 title: OpenClaw Open-Source AI Assistant Deployment Guide
-description: OpenClaw is a self-hosted solution for connecting AI assistants to messaging apps like WhatsApp and Telegram, with the gateway, memory, and scripts all running on your own machine. It covers gateway architecture, Markdown memory file structure, multi-platform integration, the rationale for choosing between a VPS and a Mac mini, systemd persistent configuration, and concrete practices for permission restriction and key management.
+description: OpenClaw is a self-hosted solution for connecting AI assistants to messaging apps such as WhatsApp and Telegram, with the gateway, memory, and scripts all running on your own machine. It covers the gateway architecture, Markdown memory file structure, multi-platform integration, rationale for choosing between a VPS and Mac mini, systemd service configuration for always-on operation, and specific practices for restricting permissions and managing secrets.
 date: 2026-01-26
 updated: 2026-10-31
 tags:
@@ -10,44 +10,44 @@ tags:
 - Automation
 - Personal assistant
 categories:
+- Artificial intelligence
 - AI
-- AI
-- AI Applications
+- Artificial Intelligence Applications
 head:
 - - meta
   - name: keywords
-    content: OpenClaw,AI Assistant,AI Agent,Open Source AI,Personal assistant,Automation,Claude,ChatGPT,Messaging bot,Self-hosted,systemd,Permission Isolation
-translatedFrom: 6248317a0e00d99c
+    content: OpenClaw,AI Assistant,AI Agent,Open Source AI,Personal assistant,Automation,Claude,ChatGPT,Messaging Bot,Self-hosted,systemd,Permission Isolation
+translatedFrom: a85f3f9f28c00ac7
 ---
 # OpenClaw Open-Source AI Assistant Deployment Guide
 
-Send "clean up the desktop" on your phone, and a machine on the server actually executes it, then the result comes back to the chat window—this is the target form of OpenClaw. It is a self-hosted message-first assistant; the gateway process runs on your machine, memory is stored as local Markdown files, and model calls use the API Key you configure yourself.
+Send a message on your phone saying "tidy up the desktop," and a machine on the server actually executes it, with the result returning to the chat window—this is the target form of OpenClaw. It is a self-hosted, message-first assistant: the gateway process runs on your machine, memory is stored as local Markdown files, and model calls use the API Key you configure yourself.
 
-The following sections cover architecture, memory structure, platform integration, installation and configuration, persistent running and scheduling, hardware selection, and how to constrain permissions.
+Below, we cover the architecture, memory structure, platform integrations, installation and configuration, persistence and scheduling, hardware selection, and how to tighten permissions.
 
 ## First, establish three judgments
 
-1. **No cloud control plane**: All logic is in the local process; when the machine is off, it is offline
-2. **Hardware depends on whether you need local models**: If you only use APIs, a 2C2G VPS is enough; local inference is what requires hardware like a Mac mini
-3. **It has the permissions of your account**: Isolate first, then add features; do not deploy it for the first time on a host with production data
+1. **There is no cloud control plane**: all logic runs in the local process, and it goes offline when the machine shuts down
+2. **Hardware depends on whether you need local models**: if you only use APIs, a 2C2G VPS is enough; local inference requires hardware such as a Mac mini
+3. **It has the permissions of your account**: isolate first, then add features; do not deploy it for the first time on a host with production data
 
-## 1. What problem it solves
+## 1. What problem does it solve
 
-Web-based chat products require you to open them and ask questions proactively; when the conversation ends, the context is gone. Putting an assistant into a messaging app changes two things:
+Web-based chat products require you to open them proactively and ask questions proactively, and the context is gone once the conversation ends. Putting an assistant into a messaging app changes two things:
 
-- **Entry point**: No need to switch apps; talk directly in Telegram/WhatsApp, and voice messages can also be converted to text
-- **Proactivity**: The gateway checks conditions on a cron schedule and proactively sends a message when they are met, without requiring you to be present
+- **Entry point**: no need to switch apps; just talk directly in Telegram/WhatsApp, and voice messages can also be converted to text
+- **Proactivity**: the gateway checks conditions on a cron schedule and proactively sends a message when they are met, without requiring you to be present
 
-The cost is permissions. It needs to execute shell commands, read and write files, and call external APIs on the local machine. These capabilities also mean that the consequences of misoperations and prompt injection are borne by you.
+The cost is permissions. It needs to execute shell commands, read and write files, and call external APIs on the local machine. These capabilities also mean that the consequences of mistakes and prompt injection are borne by you.
 
-| Dimension | Web chat | OpenClaw |
+| Dimension | Web-based chat | OpenClaw |
 |---|---|---|
-| Entry point | Open a website or app | Everyday messaging apps |
+| Entry point | Open a website or app | A commonly used messaging app |
 | Memory | Single session | Long-term local file storage |
 | Proactivity | Passively waits for instructions | Proactive cron push |
 | Data location | Vendor cloud | Your own machine |
 
-## 2. Architecture: The gateway is the orchestrator
+## 2. Architecture: the gateway is the orchestrator
 
 ```
 消息应用 ⇄ OpenClaw Gateway ⇄ AI 模型 + 工具
@@ -63,16 +63,16 @@ graph LR
     B -->|回复| A
 ```
 
-Path of a request:
+The path of a request:
 
-1. A message comes in from the platform; the gateway performs authentication (whether it is a user in the allowlist)
+1. A message comes in from a platform, and the gateway performs authentication (is it a user in the allowlist?)
 2. Assemble context: system prompt, relevant memory files, available tools
-3. Call the model; if the model returns tool calls, execute them, feed the results back, and loop until it no longer calls tools
-4. The output returns to the original conversation thread
+3. Call the model; if the model returns a tool call, execute it, feed the result back, and loop until it no longer calls tools
+4. Output returns to the original conversation thread
 
-The reason it is called a gateway is that it manages four things at once: a multi-platform inbox, conversation state, scheduled tasks, and connections to external services. Proactive notifications are "cron triggers → goes through the same reasoning chain → delivered to the specified conversation."
+The gateway is called a gateway because it manages four things at once: a multi-platform inbox, session state, scheduled tasks, and external service connections. Proactive notifications are simply "cron triggers → goes through the same reasoning chain → delivers to the specified conversation."
 
-Data boundary when running locally:
+Data boundary during local operation:
 
 ```mermaid
 graph TD
@@ -83,7 +83,7 @@ graph TD
 
 Model calls still go out to the network unless you switch to a local model; messages, memory, and script configuration stay on the local machine.
 
-## 3. Memory: Files are state
+## 3. Memory: files are state
 
 Memory is a set of Markdown files in a directory, not a database:
 
@@ -96,7 +96,7 @@ Memory is a set of Markdown files in a directory, not a database:
 └── context.md
 ```
 
-Daily notes record what happened that day; `preferences.md` and `context.md` record long-term preferences and background.
+Daily notes record what happened that day, while `preferences.md` and `context.md` record long-term preferences and background.
 
 ```markdown
 # 2026-01-26 Daily Memory
@@ -114,20 +114,20 @@ Daily notes record what happened that day; `preferences.md` and `context.md` rec
 - [x] 接入日历
 ```
 
-Practical benefits of this design: you can open it directly with Obsidian, search it with grep, version it with git, and package it and go. The risks are also direct—files will pile up, and in long-context scenarios you need to regularly clean up outdated entries.
+The practical benefits of this design: you can open it directly with Obsidian, search it with grep, version it with git, and take it with you by packaging it. The risks are also direct—files accumulate over time, and long-context scenarios require periodic cleanup of outdated entries.
 
-## 4. Platform integration
+## 4. Platform integrations
 
 | Platform | Notes |
 |---|---|
-| Telegram | Simplest to configure, first choice for beginners |
+| Telegram | Simplest to configure, the first choice for beginners |
 | WhatsApp | Good mobile experience, requires QR code binding |
 | Discord / Slack | Team scenarios |
-| iMessage | Depends on BlueBubbles, requires an always-on Mac |
+| iMessage | Depends on BlueBubbles and requires an always-on Mac |
 | Signal | Privacy-first |
 | Matrix / Teams | Self-hosted or enterprise environments |
 
-Multiple platforms can be connected at the same time and share the same memory. For group chats, be sure to set trigger rules first; otherwise every message will enter inference.
+Multiple platforms can be connected at the same time and share the same memory. For group chats, be sure to set trigger rules first; otherwise, every message will enter inference.
 
 ## 5. Installation and configuration
 
@@ -147,9 +147,9 @@ Steps for Telegram integration:
 curl "https://api.telegram.org/bot<TOKEN>/getUpdates"
 ```
 
-The configuration file is at `~/.openclaw/openclaw.json`, logs are in `~/.openclaw/logs/`, and memory is in `~/.openclaw/memory/`. After installation, first send "What can you do" to verify the link, then add integrations.
+The configuration file is at `~/.openclaw/openclaw.json`, logs are in `~/.openclaw/logs/`, and memory is in `~/.openclaw/memory/`. After installation, first send "what can you do" to verify the chain, then add integrations.
 
-## 6. Persistent running and scheduling
+## 6. Persistence and scheduling
 
 On a VPS, hand it to systemd so the process is automatically restarted if it crashes:
 
@@ -176,7 +176,7 @@ sudo systemctl enable --now openclaw-gateway.service
 sudo systemctl status openclaw-gateway
 ```
 
-Scheduled tasks can be done in two ways: system crontab calling scripts, or using the gateway's built-in scheduler. System crontab is more stable and easier to inspect, suitable for fixed scripts:
+There are two ways to do scheduled tasks: call scripts from the system crontab, or use the gateway's built-in scheduling. The system crontab is more stable and easier to inspect, making it suitable for fixed scripts:
 
 ```bash
 # 每天 8 点简报，每周五 17 点周报
@@ -184,11 +184,11 @@ Scheduled tasks can be done in two ways: system crontab calling scripts, or usin
 0 17 * * 5 ~/.openclaw/skills/weekly-summary.sh
 ```
 
-In scripts, it is recommended to fix `cd` to the working directory and explicitly load environment variables—cron's environment is different from your login shell's environment, and this is the most common "works manually, does not run on schedule" issue.
+In scripts, it is recommended to explicitly `cd` to the working directory and explicitly load environment variables—the cron environment is different from your login shell environment, and this is the most common case of "works manually but not on a schedule."
 
 ## 7. Hardware and cost
 
-Photos of "a bunch of Mac minis running OpenClaw" can easily make people think they must buy a Mac. The decision order is: whether you need local models → whether you need macOS-exclusive capabilities → if neither is needed, use a VPS.
+Photos of "a bunch of Mac minis running OpenClaw" can easily make people think they must buy a Mac. The order of judgment is: do you need local models → do you need macOS-exclusive capabilities → if neither is needed, use a VPS.
 
 ```mermaid
 graph TD
@@ -200,24 +200,24 @@ graph TD
 
 | Scenario | Recommended configuration |
 |---|---|
-| Messages + API calls | VPS 2GB |
+| Messaging + API calls | VPS 2GB |
 | Add automation scripts | VPS 4GB |
-| Add browser automation | VPS 8GB or local machine |
-| Local LLM | Mac mini M4 or workstation |
+| Add browser automation | VPS 8GB or a local machine |
+| Local LLM | Mac mini M4 or a workstation |
 
-Actual reasons to choose a Mac mini: low power consumption (about $2 per month in electricity if left on year-round), fanless and silent, can run MLX-optimized local models, and iMessage and Apple Notes are directly usable.
+The practical reasons to choose a Mac mini: low power consumption (about $2 per month in electricity for always-on operation), fanless and silent, able to run MLX-optimized local models, and direct access to iMessage and Apple Notes.
 
-Cost structure:
+Cost composition:
 
 | Item | Monthly cost |
 |---|---|
 | Software | $0 (open source) |
-| Local running | $0 |
+| Local operation | $0 |
 | Basic VPS | $5-10 |
 | API (light) | $10-20 |
 | API (heavy) | $50-100+ |
 
-A cost-saving approach is tiered calls: assign classification, summarization, and formatting to cheap models, and use strong models only for tasks that require planning or multi-step reasoning.
+The way to save money is tiered calls: assign classification, summarization, and formatting to cheaper models, and use strong models only for tasks that require planning or multi-step reasoning.
 
 ## 8. Security
 
@@ -238,13 +238,13 @@ RUN npm install
 USER openclaw
 ```
 
-**Permission reduction**
+**Permission tightening**
 
-- Command allowlist: only allow things like `git`, `npm`, and `curl` that are actually needed
+- Command allowlist: only allow commands you actually need, such as `git`, `npm`, and `curl`
 - Directory allowlist: no writes outside the working directory; explicitly deny `/etc` and `/root`
 - Dangerous operations require manual confirmation; do not provide a global "auto-approve" switch
 
-**Secrets**
+**Keys**
 
 ```bash
 # 环境变量 + 600 权限，别写进仓库
@@ -263,19 +263,24 @@ sudo ufw allow from <你的IP> to any port 18789
 
 **Privacy**
 
-Prompts sent to cloud models contain your memory content. Switch to a local model for sensitive tasks, regularly clean up expired entries in `memory/`, and set log retention to be shorter as needed.
+Prompts sent to cloud models contain your memory content. Switch to a local model for sensitive tasks, periodically clean up outdated entries in `memory/`, and set log retention as short as needed.
 
 ## 9. Suitable and unsuitable
 
 | Situation | Conclusion |
 |---|---|
-| Knows the command line and wants to automate daily tasks | Suitable; start with a single platform and a single model |
+| Comfortable with the command line and wants to automate daily tasks | Suitable; start with a single platform and a single model |
 | Privacy-sensitive and able to self-host | Suitable; configure a local model |
-| Completely non-technical users | Not suitable; the configuration barrier is the terminal |
-| Requires SLA and compliance certification | Not suitable; the project iterates quickly and has no formal support |
-| Zero budget | Not suitable; model APIs are an ongoing expense |
+| Completely non-technical users | Unsuitable; the configuration threshold is the terminal |
+| Needs SLA and compliance certification | Unsuitable; the project iterates quickly and has no formal support |
+| Zero budget | Unsuitable; model APIs are an ongoing expense |
 
-For the first deployment, keep it to no more than three things: one platform, one model, and one scheduled task. Run it for a week, then decide what to add.
+Keep the first deployment to no more than three things: one platform, one model, and one scheduled task. Run it for a week, then decide what to add.
+
+## Related reading
+
+- [Hermes Agent: A Self-Hostable Open-Source AI Agent](/en/ai/hermesAgent): another architecture for a gateway-style assistant
+- [AI Agent Skills Introduction: From Concepts to Runnable Skill Packages](/en/ai/agentSkills): how to write and load skill packages
 
 ## References
 

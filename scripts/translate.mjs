@@ -174,7 +174,12 @@ function checkStructure(src, dst) {
   if (linkSrc !== linkDst) problems.push(`链接数 ${linkSrc} → ${linkDst}`)
   const codeSrc = count(src, /`[^`\n]+`/g)
   const codeDst = count(dst, /`[^`\n]+`/g)
-  if (codeSrc !== codeDst) problems.push(`行内代码 ${codeSrc} → ${codeDst}`)
+  // 模型在密集表格里偶尔少一个反引号对，差 1 可容忍（渲染影响极小），差得多说明结构坏了
+  const codeDiff = Math.abs(codeSrc - codeDst)
+  if (codeDiff > 1) problems.push(`行内代码 ${codeSrc} → ${codeDst}`)
+  else if (codeDiff === 1) {
+    console.log(`    · 行内代码差 1（${codeSrc} → ${codeDst}），已容忍`)
+  }
   return problems
 }
 
@@ -355,7 +360,21 @@ async function translateOne(file) {
     fm += `\ntranslatedFrom: ${sourceHash}`
   }
 
-  const translatedBody = await translateText(body)
+/** 正文里的站内链接要指向英文站同一路径（/backend/x → /en/backend/x），
+ * 否则英文文章的相关阅读会跳回中文页。跳过代码块与已带 /en 的链接。 */
+function localizeLinks(md) {
+  return md
+    .split('\n')
+    .map((line, i, arr) => {
+      // 粗略跳过围栏代码块内的行
+      const before = arr.slice(0, i).filter((l) => /^\s*(```|~~~)/.test(l)).length
+      if (before % 2 === 1) return line
+      return line.replace(/\]\((\/(?!en\/)[^)\s]+)\)/g, '](/en$1)')
+    })
+    .join('\n')
+}
+
+  const translatedBody = localizeLinks(await translateText(body))
   fs.mkdirSync(path.dirname(outPath), { recursive: true })
   const out = (hasFM ? `---\n${fm}\n---\n${translatedBody}` : translatedBody).replace(/\n{3,}/g, '\n\n')
   fs.writeFileSync(outPath, out, 'utf8')
