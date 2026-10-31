@@ -178,7 +178,48 @@ function patchHardcodedZhUi() {
   })
 }
 
-/** 看板娘：文章详情页自动收起；其它页面滚出首屏后淡出。
+/** 列表页（首页/时间线/分类目录）：这些页面上看板娘正常待着，其它页面视为文章详情页 */
+function isListPage() {
+  const raw = window.location.pathname.replace(/\/+$/, '')
+  const path = raw.replace(/\.html$/, '')
+  const listPaths = new Set(['', '/index', '/en', '/en/index', '/timeline', '/en/timeline'])
+  return listPaths.has(path) || raw.endsWith('/')
+}
+
+/** 看板娘休息后会在 body 下挂一个 z-index 9998 的状态条，点它可恢复 */
+function findOml2dStatusBar(): HTMLElement | null {
+  const nodes = [...document.body.children] as HTMLElement[]
+  return (
+    nodes.find(
+      (el) =>
+        el.tagName === 'DIV' &&
+        el.id !== 'app' &&
+        Number.parseInt(getComputedStyle(el).zIndex, 10) === 9998
+    ) || null
+  )
+}
+
+/** 文章页让看板娘休息（收起成状态条），回列表页再唤醒。
+ * 用户自己点菜单休息的情况不自动唤醒，所以只处理「自动睡下」的那次。 */
+let autoSleeping = false
+function applyPageSleepState() {
+  if (!widget) return
+  if (!isListPage()) {
+    if (!findOml2dStatusBar()) {
+      try {
+        widget.sleep()
+        autoSleeping = true
+      } catch {
+        /* 实例还没准备好，下次路由变化再试 */
+      }
+    }
+  } else if (autoSleeping) {
+    findOml2dStatusBar()?.click()
+    autoSleeping = false
+  }
+}
+
+/** 看板娘：列表页滚出首屏后淡出（文章页由 applyPageSleepState 处理休息态）。
  * 注意：l2d-widget 把舞台渲染成 body 直接子级的 fixed div（z-index 9999），
  * 不是 #l2d-widget 内部，所以按 z-index 找节点。 */
 let oml2dFadeBound = false
@@ -198,14 +239,11 @@ function bindOml2dFade() {
   const update = () => {
     const nodes = stageNodes()
     if (!nodes.length) return
-    // 文章详情页直接收起；首页/时间线/分类页等列表页正常显示，滚动出首屏才收
-    const rawPath = window.location.pathname.replace(/\/+$/, '')
-    const path = rawPath.replace(/\.html$/, '')
-    const listPaths = new Set(['', '/index', '/en', '/en/index', '/timeline', '/en/timeline'])
-    const isListPage = listPaths.has(path) || rawPath.endsWith('/')
-    const inDoc = !isListPage && document.querySelectorAll('.VPDocAsideOutline a').length > 0
+    // 文章页收起成休息态；列表页滚出首屏才淡出（这里只管淡出）
+    // 休息态下不淡出，否则状态条也几乎看不见，用户没入口把她叫回来
+    const sleeping = !!findOml2dStatusBar()
     const scrolled = window.scrollY > window.innerHeight * 0.4
-    const next = inDoc || scrolled ? '0.1' : '1'
+    const next = scrolled && !sleeping ? '0.1' : '1'
     if (last === next) return
     last = next
     for (const el of nodes) {
@@ -313,6 +351,8 @@ const Layout = defineComponent({
       try {
         const { createWidget } = await import('l2d-widget')
         widget = createWidget(options)
+        // 实例就绪后按当前页面决定是否直接休息（文章页收起）
+        setTimeout(() => applyPageSleepState(), 400)
       } finally {
         creating = false
       }
@@ -330,7 +370,8 @@ const Layout = defineComponent({
       const run = () => {
         scheduled = false
         wrapTables() // 表格横向滚动，中英都生效
-        oml2dUpdate?.() // SPA 切页后重新判断：详情页收起，列表页恢复
+        oml2dUpdate?.() // 列表页滚出首屏淡出
+        applyPageSleepState() // 文章页让看板娘休息，回列表页唤醒
         patchNotFound() // 404 页：按 URL 前缀决定语言，与 locale 无关
         if (localeIndex.value !== 'en') return
         patchHardcodedZhUi()
