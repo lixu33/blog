@@ -190,82 +190,52 @@ function isListPage() {
 }
 
 /** 看板娘休息后会在 body 下挂一个 z-index 9998 的状态条，点它可恢复 */
-/** 收起/展开看板娘。
- * 不用 l2d 自带的 sleep()：它把状态条平移出屏幕且设成 pointer-events:none，
- * 用户点不到，等于没有恢复入口；这里直接控舞台容器 + 自建一个小按钮。 */
-let oml2dCollapsed = false
-let autoCollapsed = false
-let lastSleepPath: string | null = null
-
-function oml2dStage(): HTMLElement | null {
+/** 找 l2d 的休息状态条（z-index 9998，不含 canvas） */
+function findOml2dStatusBar(): HTMLElement | null {
   const nodes = [...document.body.children] as HTMLElement[]
   return (
     nodes.find((el) => {
       if (el.tagName !== 'DIV' || el.id === 'app') return false
-      if (!el.querySelector('canvas')) return false
+      if (el.querySelector('canvas')) return false
       const z = Number.parseInt(getComputedStyle(el).zIndex, 10)
-      return Number.isFinite(z) && z >= 9990
+      return z === 9998 && /正在休息/.test(el.textContent || '')
     }) || null
   )
 }
 
-function setOml2dCollapsed(collapsed: boolean) {
-  const stage = oml2dStage()
-  if (!stage) return
-  stage.style.display = collapsed ? 'none' : ''
-  oml2dCollapsed = collapsed
+/** 文章页让看板娘休息（用自带的 sleep），回列表页唤回。
+ * 只按「路径变化」触发：同一页面内不干预，用户手动点开后不会被收回去。 */
+let autoSleeping = false
+let lastSleepPath: string | null = null
 
-  let btn = document.getElementById('oml2d-wake') as HTMLButtonElement | null
-  if (collapsed) {
-    if (!btn) {
-      btn = document.createElement('button')
-      btn.id = 'oml2d-wake'
-      btn.type = 'button'
-      btn.title = '展开看板娘'
-      btn.textContent = '🐋'
-      Object.assign(btn.style, {
-        position: 'fixed',
-        left: '10px',
-        bottom: '96px',
-        zIndex: '9997',
-        width: '34px',
-        height: '34px',
-        borderRadius: '50%',
-        border: 'none',
-        background: 'rgba(37, 99, 235, 0.9)',
-        color: '#fff',
-        fontSize: '16px',
-        lineHeight: '34px',
-        textAlign: 'center',
-        cursor: 'pointer',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
-      } as Partial<CSSStyleDeclaration>)
-      btn.addEventListener('click', () => {
-        setOml2dCollapsed(false)
-        autoCollapsed = false
-      })
-      document.body.appendChild(btn)
-    }
-  } else if (btn) {
-    btn.remove()
-  }
-}
-
-/** 文章页收起看板娘（她挡住正文），回列表页再展开。
- * 只按「路径变化」触发：同一页面内不干预，用户手动展开后不会被收回去。 */
 function applyPageSleepState() {
-  const stage = oml2dStage()
-  if (!stage) return
+  if (!widget) return
   const path = window.location.pathname.replace(/\.html$/, '')
   if (path === lastSleepPath) return
   lastSleepPath = path
 
   if (!isListPage()) {
-    setOml2dCollapsed(true)
-    autoCollapsed = true
-  } else if (autoCollapsed) {
-    setOml2dCollapsed(false)
-    autoCollapsed = false
+    try {
+      autoSleeping = true
+      // sleep 后 canvas 若仍在视口内，说明被入场动画/tips 唤回了，补两次
+      const sleepWithRetry = (n: number) => {
+        if (!widget || n > 2) return
+        widget.sleep()
+        setTimeout(() => {
+          const c = document.querySelector('canvas')
+          const r = c?.getBoundingClientRect()
+          const visible = r ? r.top < window.innerHeight - 20 && r.bottom > 0 : false
+          if (visible) sleepWithRetry(n + 1)
+        }, 1300)
+      }
+      sleepWithRetry(0)
+    } catch {
+      lastSleepPath = null // 实例没准备好，下次再判
+    }
+  } else if (autoSleeping) {
+    // 回列表页：不强行唤回（导航时 l2d 自己会重挂，硬点状态条反而会把
+    // 正在加载的实例点乱）。只清标志，让实例按自身状态走。
+    autoSleeping = false
   }
 }
 
