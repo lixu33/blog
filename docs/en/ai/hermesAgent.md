@@ -1,8 +1,9 @@
 ---
 isTimeLine: true
-title: Introducing Hermes Agent
-description: Hermes Agent is an open-source autonomous AI agent from Nous Research, with "self-evolution" as its core selling point—automatically creating skills from experience, persistent memory across sessions, and support for 200+ models and multi-platform messaging gateways. This article details its core features, how it works, and the complete deployment process.
+title: "Hermes Agent: A Self-Hostable Open-Source AI Agent"
+description: Hermes Agent is an MIT-licensed agent open-sourced by Nous Research that turns task processes into reusable skill files and stays online long-term within a messaging gateway. It covers memory and retrieval, cron scheduling, sub-agent mechanisms, plus installation, model configuration, platform integration, Docker and VPS deployment steps, and cost estimates.
 date: 2026-08-01
+updated: 2026-10-31
 tags:
 - AI Agent
 - Open-source tools
@@ -15,265 +16,139 @@ categories:
 head:
   - - meta
     - name: keywords
-      content: Hermes Agent,AI agent,AI Agent,Open Source AI,Self-Evolution,Persistent Memory,Skills,Automation,Nous Research,Message Bot
-translatedFrom: 332de621a464e9cc
+      content: Hermes Agent,AI Agent,AI Agent,Open source AI,Self-Evolution,Persistent Memory,Skills,Automation,Nous Research,Messaging bot,Self-hosted,Message Gateway,cron
+translatedFrom: 5275f6cf1ec17656
 ---
-# Hermes Agent Open-Source AI Agent Deployment Guide
+# Hermes Agent: A Self-Hostable Open-Source AI Agent
 
-Most AI assistants on the market are like disposable products: when the conversation ends, their memory is wiped; ask as a different person, and they start over. **Hermes Agent aims to change this**—it is one of the few open-source agents that truly has a built-in "learning loop": after completing a task, it automatically distills the process into a skill, reuses it directly the next time it encounters a similar task, and gets faster and more attuned to you the more you use it.
+If you want an assistant on your server that can proactively send messages, run commands, and remember what you talked about last month, the common approach is to cobble together a bot framework and then add scheduled tasks, logs, and a memory store, which gets more fragmented the more you add. Hermes Agent (by Nous Research, MIT licensed) packs these components into a single process: the message gateway connects to platforms, the model layer can switch providers, the tool layer performs actual operations, and skills and memory are persisted to disk.
 
-It comes from [Nous Research](https://nousresearch.com)—creator of the open-source Hermes, Nomos, and Psyche model series—and its official positioning is "The agent that grows with you" (an agent that grows alongside you). In the 2026 open-source agent wave, it has leveraged the differentiator of "self-evolution" to accumulate 223k+ stars on GitHub.
+The following sections cover, in order: components, installation, model and platform configuration, scheduling and parallelism, deployment forms, cost, and security boundaries.
 
-## 1. What Is Hermes Agent?
+## Three Things to Remember First
 
-### 1.1 Core Definition
+1. **One gateway process + one data directory (`~/.hermes`)** is the entire state; backup and migration only require moving this directory
+2. **Models and platforms are just configuration items**; `hermes model` switches models, `hermes gateway setup` connects platforms, and no code changes are needed
+3. **You need to define the permission boundary yourself**; it can execute shell commands and read/write files; run it first on an isolated machine or in a container, then move it to a host with data
 
-Hermes Agent is an open-source, self-hosted autonomous AI agent framework (MIT license) that can be deployed locally, on a VPS, in Docker, or on serverless infrastructure. Its core feature is not "smarter conversation" but **the ability to continuously evolve**:
+## 1. What It Is
 
-- Creates skills from experience
-- Continuously improves skills through use
-- Proactively prompts itself to persist knowledge
-- Searches its own past conversations
-- Builds a deep understanding of you across sessions
+Hermes Agent is a self-hosted agent runtime that can run locally, on a VPS, in Docker, on an SSH target machine, or in a serverless sandbox. The differences from web-based chat products center on three points:
 
-In one sentence: **traditional AI is a disposable tool, while Hermes Agent is a colleague that becomes more valuable the more you use it.**
+- **State beyond sessions**: conversation records, extracted preferences, and task results are all written to local storage and can be recalled across sessions
+- **Tools**: terminal commands, file read/write, browser operations, web scraping, and code execution are all in the same reasoning loop
+- **Accumulable workflows**: after completing a complex task, you can organize the steps into a `SKILL.md` skill and execute according to that skill next time
 
-### 1.2 What It Is Not
+| Component | Responsibility |
+|---|---|
+| Gateway | Connect to messaging platforms, maintain sessions and delivery |
+| Model layer | Call the selected provider, support switching and fallback |
+| Tool layer | Actual actions such as terminal, files, browser, and search |
+| Memory | Session storage, full-text search, user profile |
+| Skill library | On-demand loaded `SKILL.md` directory |
+| Scheduling | cron jobs, deliver results to a specified platform |
 
-| Misconception | Truth |
-|:-----|:-----|
-| It is a chatbot wrapper | It is an autonomous agent that becomes more capable the longer it runs |
-| An IDE-bound coding copilot | It can run on VPS, GPU clusters, and serverless |
-| Locked to a single API | Supports 200+ models, with one-command switching via `hermes model` |
-| Depends on your local computer | It can work on a cloud VM while you chat with it from Telegram |
+## 2. Installation
 
-### 1.3 The Team Behind It
-
-Nous Research is the creator of the open-source Hermes, Nomos, and Psyche model series. In February 2026, it officially released Hermes Agent and completed a $50 million Series A funding round led by Paradigm (at a $1 billion valuation). Their judgment is straightforward: **the chatbot interaction paradigm has hit its ceiling, and the next direction is the "always-on digital employee."**
-
-## 2. Core Features
-
-### 2.1 Closed-Loop Learning System (Core Selling Point)
-
-```mermaid
-graph LR
-    A[任务执行] --> B[经验记录]
-    B --> C[效果评估]
-    C --> D[策略优化 GEPA]
-    D --> E[技能沉淀 Skill]
-    E --> A
-```
-
-Hermes Agent is the **only agent with a built-in learning loop**:
-- Automatically creates reusable Skill files after completing complex tasks
-- Skills self-improve during use
-- Continuously optimizes strategies through the **GEPA self-evolution system**—traditional reinforcement learning requires tens of thousands of evaluations to converge, while GEPA can complete strategy iteration in only 100-500 evaluations
-- Compatible with the [agentskills.io](https://agentskills.io) open standard, so skills are portable, shareable, and open to community contributions
-
-### 2.2 Persistent Memory
-
-Traditional AI assistants are stateless; when the conversation ends, everything resets to zero. Hermes Agent breaks this premise:
-
-- **Cross-session persistent memory**: automatically records conversations and extracts key information for storage
-- **FTS5 full-text search + LLM summarization**: can search its own past conversations and recall across sessions
-- **Honcho dialectical user modeling**: gradually builds a profile of your preferences, work habits, and needs
-- **Proactive prompting**: it "reminds" itself to persist important knowledge rather than passively waiting
-
-### 2.3 Multi-Platform Messaging Gateway
-
-A single gateway process connects simultaneously to:
-
-| Platform | Status |
-|:-----|:-----|
-| Telegram | ✅ Recommended, easy to configure |
-| Discord | ✅ |
-| Slack | ✅ |
-| WhatsApp | ✅ |
-| Signal | ✅ |
-| Feishu / DingTalk / WeCom | ✅ Available for users in China |
-| QQ / Email | ✅ |
-
-All channels share a **unified memory and persona** and are online around the clock. It also supports voice message transcription and cross-platform conversation continuity.
-
-### 2.4 Model-Agnostic, Zero Lock-In
-
-Supports any model provider—Nous Portal, OpenRouter (200+ models), OpenAI, Anthropic Claude, DeepSeek, Hugging Face, NVIDIA NIM, Xiaomi MiMo, z.ai/GLM, Kimi/Moonshot, MiniMax, or custom endpoints.
-
-```bash
-hermes model   # 一条命令切换模型，无需改代码
-```
-
-For local scenarios, it is compatible with Ollama, vLLM, and SGLang.
-
-### 2.5 Runs Anywhere
-
-| Terminal Backend | Description |
-|:-----|:-----|
-| Local | Runs directly on a laptop/desktop |
-| Docker | Container isolation |
-| SSH | Remote server |
-| Singularity | High-performance computing |
-| Modal / Daytona | **Serverless persistence**: sleeps when idle, wakes on demand, and costs almost nothing when idle |
-| Vercel Sandbox | Cloud development environment |
-
-It can run on a $5 VPS or a GPU cluster, and serverless infrastructure costs approach zero when idle.
-
-## 3. How It Works
-
-### 3.1 Core Architecture
-
-```mermaid
-graph TD
-    A[消息平台 Telegram/Discord/微信...] -->|消息| B[Hermes Gateway]
-    B -->|请求| C[AI 模型 200+ 可选]
-    C -->|调用| D[工具集 40+]
-    D -->|结果| B
-    B -->|回复| A
-    B -->|沉淀| E[Skill 技能库]
-    B -->|存储| F[持久记忆 FTS5]
-    B -->|调度| G[Cron 定时任务]
-```
-
-### 3.2 Learning Loop Details
-
-1. **Experience recording**: records the complete process when executing complex tasks
-2. **Effectiveness evaluation**: evaluates the quality of results
-3. **Strategy optimization**: the GEPA system completes strategy iteration within 100-500 evaluations
-4. **Skill distillation**: solidifies successful experience into reusable Skill files
-5. **Reuse and improvement**: directly invokes the skill the next time a similar task arises and continues to improve it through use
-
-### 3.3 Scheduled Automation
-
-Built-in cron scheduler with natural language configuration, delivering to any platform:
-
-```bash
-# 每天 8:00 发送日报
-hermes cron add "每天早上8点给我发送当日日程摘要" --deliver telegram
-
-# 每周五备份
-hermes cron add "每周五下午5点执行服务器备份" --deliver slack
-```
-
-Daily reports, nightly backups, and weekly inspections—all run automatically unattended.
-
-### 3.4 Delegation and Parallelism
-
-It can spawn isolated subagents to process multiple workflows in parallel; `execute_code` enables programmatic tool calls, compressing multi-step pipelines into a single inference call with zero context cost.
-
-## 4. Differences from Traditional AI Assistants
-
-| Feature | Traditional AI (ChatGPT/Claude Web) | Hermes Agent |
-|:-----|:-----|:-----|
-| **Interaction method** | Open a specific app/website | Integrated into everyday messaging apps |
-| **Memory capability** | Single-session or limited context | Unlimited cross-session memory + user modeling |
-| **Learning capability** | None (fixed model) | **Closed learning loop, stronger with use** |
-| **Proactivity** | Passively waits for instructions | Proactively pushes notifications and schedules tasks |
-| **Running location** | Fixed in the cloud | Local/VPS/Serverless, your choice |
-| **Model selection** | Single vendor | Freely switch among 200+ models |
-| **Skill distillation** | None | Automatically creates reusable Skills |
-
-## 5. How to Deploy Hermes Agent
-
-### 5.1 Installation
-
-**Linux / macOS / WSL2 / Android (Termux):**
+Linux / macOS / WSL2 / Termux:
 
 ```bash
 curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-
-# 安装完成后刷新 shell
-source ~/.bashrc  # 或 source ~/.zshrc
+source ~/.bashrc   # 或 ~/.zshrc
 ```
 
-**Windows (PowerShell):**
+Windows (PowerShell):
 
 ```powershell
 iex (irm https://hermes-agent.nousresearch.com/install.ps1)
 ```
 
-macOS / Windows users can also directly download the **Hermes Desktop** installer (graphical interface, including CLI and desktop app).
+macOS and Windows also have desktop installers that include both the CLI and a graphical interface.
 
-### 5.2 Quick Configuration
+After installation, do only one thing first: get a clean conversation working.
 
 ```bash
-# 1. 初始化（交互式引导：选择模型提供商、配置 API Key）
-hermes setup
-
-# 2. 或直接选择模型
-hermes model   # 交互式选择提供商和模型
-
-# 3. 验证聊天
-hermes
+hermes setup    # 交互式向导：选供应商、填 API Key
+hermes          # 进入对话
 ```
 
-**Recommended path: Nous Portal** — a single subscription covers 300+ models, and also comes with Tool Gateway (web search, image generation, TTS, etc.).
+If `hermes` won't start or the conversation errors, check `hermes doctor` first; don't rush to add gateway, cron, or plugins. The smaller the troubleshooting surface, the easier it is to locate the issue.
 
-**Rule**: If Hermes cannot complete a normal chat, don't stack more features on top first. Get one clean conversation working first, then gradually add gateway, cron, skills, voice, and routing.
+## 3. Model Configuration
 
-### 5.3 Configuring Messaging Platforms (Gateway)
+The model is a configuration item, not a binding relationship. `hermes model` interactively selects a provider and model; you can also use `-m` / `--provider` to specify them for a single call:
 
-After CLI chat is verified, configure the messaging gateway:
+```bash
+hermes -m <model> --provider <provider>
+hermes status           # 看当前模型、provider、各部件状态
+hermes fallback         # 主模型失败时的备用供应商
+```
+
+Supported options include Nous Portal, OpenRouter, OpenAI, Anthropic, DeepSeek, z.ai/GLM, Kimi, MiniMax, and any OpenAI-compatible endpoint. For local inference, use Ollama, vLLM, or SGLang by pointing the base URL at it.
+
+For model selection, tiering by task saves money: use cheap models for high-frequency lightweight tasks, strong models for long-chain reasoning, and keep privacy-sensitive tasks on local models.
+
+## 4. Connecting to Messaging Platforms
 
 ```bash
 hermes gateway setup
 ```
 
-Follow the prompts to connect Telegram / Discord / Slack / WhatsApp / Signal / Feishu / DingTalk / WeCom, etc. After that, you can talk to it on your phone while it works on the server.
+Follow the prompts to choose a platform (Telegram, Discord, Slack, WhatsApp, Signal, Feishu, DingTalk, WeCom, etc.). The wizard will guide you through creating a bot, filling in the token, and getting the chat ID. Once configured, the same gateway process can connect to multiple platforms simultaneously and share the same memory and persona settings.
 
-### 5.4 VPS Deployment Recommendations
+A few practical pitfalls:
 
-**Beginner configuration:**
+- **Long polling vs webhook, choose one**: use long polling locally or behind NAT; use webhook when you have a public domain
+- **Restrict trigger scope in group chats**: otherwise it will respond to every message, burning tokens and annoying people
+- **Set up the allowlist first**: only you should be able to DM it
 
-```yaml
-platform: Telegram
-model: DeepSeek / GLM / Kimi (国内可达)
-hosting: 5美元 VPS
-integrations:
-  - None (start simple)
-cost: ~$5/月 (VPS) + API 按量
+## 5. Scheduled Tasks and Parallelism
+
+Built-in cron scheduler; describe tasks and delivery targets in natural language:
+
+```bash
+# 每天早上 8 点把日程摘要发到 Telegram
+hermes cron add "每天早上8点发送当日日程摘要" --deliver telegram
+
+# 每周五备份并汇报
+hermes cron add "每周五17点执行服务器备份并汇报结果" --deliver slack
+
+hermes cron list
+hermes cron runs <job>     # 看历史执行记录
 ```
 
-**Advanced configuration:**
+When a task fails, check `hermes cron doctor` and `hermes cron incidents`, and compare with `hermes cron status` to confirm the scheduler is running.
 
-```yaml
-platform: Telegram + Slack
-model: OpenRouter (按需切换 200+ 模型)
-hosting: VPS + Docker 隔离
-integrations:
-  - MCP Server
-  - Cron 定时任务
-  - 浏览器自动化
+When you need to split parallel work, you can spawn isolated subagents to handle it separately; for multi-step pipelines, you can use `execute_code` to combine several tool calls into one programmatic execution, avoiding feeding context back at every step.
+
+| Capability | Use case |
+|---|---|
+| cron | Daily reports, inspections, backups, scheduled scraping |
+| subagent | Multiple independent investigations |
+| execute_code | Deterministic workflows with repeated tool calls in loops |
+
+## 6. Deployment Forms
+
+### 6.1 VPS
+
+```bash
+# 装完直接以前台方式验证，再交给 systemd 或 tmux 常驻
+hermes gateway start
 ```
 
-**Professional configuration:**
+A machine with 2 GB of memory is enough to run the gateway + a small number of cron jobs; browser automation requires extra memory.
 
-```yaml
-platform: 全平台接入
-model: 多模型路由 + 本地 Ollama
-hosting: Modal/Daytona Serverless (闲置近零成本)
-integrations:
-  - 智能家居
-  - 数据库巡检
-  - 批量轨迹生成 (研究用途)
-```
-
-### 5.5 Docker Deployment
+### 6.2 Docker
 
 ```dockerfile
 FROM python:3.12-slim
-
-# 安装 Hermes Agent
 RUN curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-
-# 数据持久化（记忆/技能/配置）
 VOLUME ["/root/.hermes"]
-
 WORKDIR /app
 CMD ["hermes", "gateway", "start"]
 ```
 
 ```yaml
-# docker-compose.yml
 services:
   hermes:
     build: .
@@ -284,83 +159,55 @@ volumes:
   hermes-data:
 ```
 
-## 6. Cost Analysis
+All data lands in `/root/.hermes`; recreating the container does not lose memory or skills; to pass in API keys, use environment variables or mount a config, and do not write them into the image layer.
 
-Hermes Agent itself is **completely open source and free** (MIT); costs mainly come from model APIs and the hosting environment:
+### 6.3 Other Backends
 
-| Item | Option | Cost |
-|:-----|:-----|:------|
-| **Software License** | Open source and free | $0 |
-| **Runtime Environment** | Local computer | $0 |
-| | VPS (basic) | $5/month |
-| | Serverless (Modal/Daytona) | Near-zero cost when idle |
-| **AI Models** | Local models (Ollama, requires 16GB+ VRAM) | $0 |
-| | API pay-as-you-go (DeepSeek/GLM, etc.) | $1-20/month |
-| | High-end models (Opus/Claude) | $20-100+/month |
+| Backend | Purpose |
+|---|---|
+| Local | Run directly on a laptop/desktop, simplest |
+| SSH | Gateway on the local machine, commands execute on the remote machine |
+| Singularity | HPC clusters |
+| Modal / Daytona | Serverless with idle sleep and on-demand wake |
+| Vercel Sandbox | Cloud development environment |
 
-**Cost-saving strategies**:
-- High-frequency simple tasks → cheap models (DeepSeek, GLM, Haiku)
-- Complex reasoning tasks → high-end models (Opus, Sonnet 5)
-- Privacy-sensitive tasks → local Ollama (zero API fees)
-- Serverless deployment → sleeps when idle, wakes on demand
+## 7. Cost
 
-## 7. Practical Application Scenarios
+The software itself is free; costs are in models and hosting:
 
-**Scenario 1: Personal digital butler**
-- Automatically sends a schedule summary to Telegram every day at 8:00
-- Detects important emails and notifies immediately
-- Periodically reminds of to-dos
+| Item | Monthly cost |
+|---|---|
+| Local run / own host | $0 |
+| Basic VPS | about $5 |
+| Serverless (idle sleep) | close to $0 |
+| API pay-as-you-go (DeepSeek, GLM, etc.) | $1-20 |
+| Mostly high-end models | $20-100+ |
 
-**Scenario 2: Server inspector**
-- Automatically checks VPS disk, memory, and service status weekly
-- Proactively pushes alerts when anomalies occur
-- Automatically performs backups and reports results
+Three ways to reduce costs: tier model selection by task, put inference that can run locally on local, and set cron job frequency according to actual needs, not minute-level polling.
 
-**Scenario 3: Research assistant**
-- Collects materials and generates summaries in bulk
-- Distills the research workflow into a Skill for one-click reuse next time
-- Exports trajectories for training next-generation tool-calling models
+## 8. Security Boundary
 
-**Scenario 4: Team collaboration bot**
-- Connects to Slack/Feishu/DingTalk
-- Unified memory of multiple members' preferences
-- Periodically generates weekly reports and inspection reports
+It executes real commands under your account; assess risk under this premise:
 
-## 8. Security Mechanisms
+- **Command approval**: dangerous operations (deletion, writing to sensitive paths, privilege escalation) require confirmation by default; allowlists can reduce repeated confirmations
+- **Container isolation**: put uncertain automation in containers, mount only the directories needed
+- **Least-privilege credentials**: use separate least-privilege credentials for API keys and SSH keys; don't reuse your main account
+- **Auditing**: regularly review session history and cron execution records to confirm there are no out-of-bounds actions
 
-Hermes Agent v0.5.0 has made dedicated security hardening, merging 200+ security patches:
+## 9. Common Issues Reference
 
-- Command approval (dangerous operations require confirmation)
-- Docker container sandbox isolation
-- Path traversal protection
-- SSRF mitigation
-- Credential management
-- Maintains a zero-CVE record
+| Symptom | Common cause |
+|---|---|
+| `hermes` not found after installation | Shell not reloaded, PATH not updated |
+| Chat reports 401 / 404 | API key or base URL misconfigured; `hermes status` can confirm |
+| Gateway receives no messages | Wrong choice between long polling and webhook mode, or platform token expired |
+| cron does not execute | Scheduler not started; check `hermes cron status` |
+| Context keeps growing | Long task not converging; switch to subagent or `execute_code` segmentation |
+| Replies truncated on mobile | Platform per-message length limit; send long output as a file |
 
-> "Powerful evolutionary capability, but the reins must stay in human hands."
+## References
 
-## 9. Summary
-
-The core value of Hermes Agent in one sentence: **It is the only AI agent with a built-in learning loop** — creates skills from experience, improves skills through use, remembers you across sessions, supports 200+ models, and runs on any infrastructure.
-
-Suitable for:
-- Those who want to experience an AI assistant that "gets smarter the more you use it"
-- Developers who need a 24/7 online digital employee
-- Teams that want to escape single-model lock-in
-- Users who like to control their own data and self-host
-
-**Quick Start**:
-
-```bash
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-hermes setup
-```
-
-## Reference Resources
-
-- [Hermes Agent Official Website](https://hermes-agent.nousresearch.com)
-- [GitHub Repository](https://github.com/NousResearch/hermes-agent) (223k+ stars, MIT)
-- [Official Documentation](https://hermes-agent.nousresearch.com/docs)
+- [Hermes Agent official documentation](https://hermes-agent.nousresearch.com/docs)
+- [Hermes Agent official website](https://hermes-agent.nousresearch.com)
+- [GitHub repository](https://github.com/NousResearch/hermes-agent)
 - [Nous Research](https://nousresearch.com)
-- [agentskills.io Skill Standard](https://agentskills.io)
-- [OpenRouter Model Routing](https://openrouter.ai)

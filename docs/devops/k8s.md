@@ -1,368 +1,238 @@
 ---
 isTimeLine: true
 title: Kubernetes 入门指南
-description: 了解 Kubernetes 的基本概念、架构与原理，学习如何安装、配置、部署和管理容器化应用，掌握服务发现、负载均衡、配置管理和监控日志的最佳实践。
+description: 从对象之间的层级关系讲起：Deployment 如何管理 ReplicaSet 与 Pod、控制平面各组件的分工、本地集群里外部地址为何一直待分配、Service 的四种暴露方式与集群内域名解析、密钥对象只做编码不加密的限制，以及容器卡在等待调度或反复重启时的排查顺序和常用回滚命令。
 date: 2024-05-20
+updated: 2026-10-31
 tags:
 - Kubernetes
 - 容器编排
 - DevOps
 categories:
 - DevOps 运维
-- DevOps
 - Kubernetes
 head:
 - - meta
   - name: keywords
-    content: Kubernetes, Kubernetes 初学者指南, 容器编排, Kubernetes 监控
+    content: Kubernetes, k8s, 容器编排, Deployment, Service, ConfigMap, Secret, Pod 排查
 ---
 
-# Kubernetes 初学者指南
+# Kubernetes 入门指南
 
-## 1. 介绍
+几台机器上用 compose 跑服务，某台宕机后要人工把容器搬到另一台，流量涨了还得改 Nginx upstream 加后端。Kubernetes 把这些动作交给控制器自动完成，代价是要先接受它的一套对象模型，并改掉「登机器上看进程」的习惯。
 
-### 什么是 Kubernetes？
+下面从对象关系和调谐循环讲起，再到控制平面组件、本地集群、Deployment 与 Service 的写法、配置存储，最后是 Pod 起不来时的排查顺序。
 
-Kubernetes（简称 k8s）是一个开源的容器编排平台，用于自动化容器化应用的部署、扩展和管理。它由 Google 于 2014 年开源，并由云原生计算基金会（CNCF）进行维护。Kubernetes 提供了一个灵活且强大的平台，能够在各种环境中运行容器化应用程序，从本地开发环境到生产级别的云基础设施。
+## 先理清四条关系
 
-### 为什么选择 Kubernetes？
+1. **Deployment → ReplicaSet → Pod** 是三层嵌套，改镜像要改 Deployment 的 Pod 模板；直接改 Pod 会被 ReplicaSet 按模板重建回去。
+2. **Service 通过 label selector 选 Pod**，不记 IP。Pod 重建后 IP 会变，Service 的集群 IP 不变。
+3. **一切是声明式的**：对象里描述期望状态，控制器持续把实际状态拉回期望状态（reconcile），不需要你下发「启动」命令。
+4. **Pod 是最小调度单位**，同 Pod 内容器共享网络命名空间，用 `localhost` 互访，但生命周期绑在一起。
 
-1. **自动化操作**：Kubernetes 可以自动化应用的部署、扩展和管理，减少手动操作的繁琐和错误。
-2. **高可用性**：通过自动重启、复制和负载均衡，确保应用程序的高可用性和稳定性。
-3. **可扩展性**：Kubernetes 支持水平扩展，可以根据应用的负载动态增加或减少容器实例。
-4. **灵活性**：支持多种环境，包括公有云、私有云和混合云，使得应用可以在不同平台上无缝迁移。
-5. **社区和生态系统**：Kubernetes 拥有庞大的社区和丰富的生态系统，提供了大量的插件、工具和资源，帮助开发者更好地使用和扩展 Kubernetes。
+## 一、核心对象
 
-### Kubernetes 的主要功能
+| 对象 | 作用 | 关键点 |
+|---|---|---|
+| Pod | 最小部署单元，一个或多个共享网络的容器 | 一般不直接创建 |
+| Deployment | 管理副本数与滚动更新 | 无状态应用首选 |
+| StatefulSet | 有序、稳定网络标识的副本 | 数据库等有状态场景 |
+| DaemonSet | 每个节点各跑一份 | 日志采集、网络插件 |
+| Service | 为一组 Pod 提供固定访问入口 | 靠 selector 关联 |
+| Ingress | 七层路由，按域名/路径分发 | 需要 Ingress Controller |
+| ConfigMap / Secret | 配置与敏感数据 | Secret 默认只做编码 |
+| Namespace | 逻辑隔离与配额边界 | 不隔离网络，需 NetworkPolicy |
 
-1. **容器编排**：自动化容器的部署、管理、扩展和网络配置。
-2. **服务发现和负载均衡**：自动发现服务并进行负载均衡，确保流量均匀分布。
-3. **存储编排**：自动挂载和管理存储卷，支持多种存储后端。
-4. **自动扩展**：根据负载自动扩展或缩减容器实例，优化资源使用。
-5. **自愈能力**：自动重新调度和重启失败的容器，确保应用程序的稳定运行。
-6. **配置管理和密钥管理**：使用 ConfigMap 和 Secret 管理应用配置和敏感数据。
+`Job` 与 `CronJob` 用于跑完即止的任务，前者一次性，后者按 cron 表达式调度。
 
-## 2. Kubernetes 的基本概念
+## 二、控制平面与工作节点
 
-### Pod
+官方文档早已不用 master 这组称呼，现在叫控制平面（control plane）和工作节点。
 
-Pod 是 Kubernetes 中最小的部署单元，一个 Pod 可以包含一个或多个容器，这些容器共享网络和存储资源。Pod 通常用于运行单个应用实例。
+| 组件 | 位置 | 职责 |
+|---|---|---|
+| kube-apiserver | 控制平面 | 唯一的读写入口，校验请求后写 etcd |
+| etcd | 控制平面 | 保存全部集群状态，只有 apiserver 直接访问 |
+| kube-scheduler | 控制平面 | 给新 Pod 选节点 |
+| kube-controller-manager | 控制平面 | 跑各类控制器，含节点、端点、副本控制器 |
+| kubelet | 每个节点 | 按 PodSpec 拉起容器并上报状态 |
+| kube-proxy | 每个节点 | 维护 Service 的转发规则 |
+| 容器运行时 | 每个节点 | containerd 等，实际跑容器 |
 
-### Node
+几点容易混的地方：
 
-Node 是 Kubernetes 集群中的一台工作机器，可以是物理服务器或虚拟机。每个 Node 上运行多个 Pod，并由主节点进行管理。
+- **kubelet 不负责容器网络**，IP 分配和跨节点连通由 CNI 插件（Calico、Cilium、Flannel）实现，集群没装 CNI 时 Pod 会一直 `Pending` 或 `ContainerCreating`。
+- **调度只看 requests，不看实际用量**。Pod 没写 `resources.requests` 时调度器按 0 计算，会超卖到节点 OOM。
+- 副本控制器、端点控制器这类东西都打包在 `kube-controller-manager` 一个进程里，不需要单独部署。
+- 高可用部署至少要 3 个控制平面节点，etcd 用 Raft，需要多数派存活才能写入。
 
-### Cluster
+## 三、本地起一个集群
 
-Cluster 是由一组 Node 组成的集合，主节点负责管理整个集群的状态和调度任务，确保应用的高可用性和可扩展性。
+minikube 单机起集群最快，需要先装好 Docker 或其它驱动：
 
-### Namespace
-
-Namespace 是 Kubernetes 中的一种逻辑隔离方式，用于将集群中的资源划分为不同的组，以便进行资源管理和访问控制。
-
-### Deployment
-
-Deployment 是一种高级对象，用于定义应用的期望状态，并负责管理 Pod 的创建、更新和删除，确保应用始终处于期望状态。
-
-### Service
-
-Service 是 Kubernetes 中的一个抽象层，用于定义一组 Pod 的访问策略，提供负载均衡和服务发现功能，使得应用可以通过固定的 IP 和端口进行访问。
-
-## 3. Kubernetes 的架构与原理
-
-![架构图](https://img.lixu.dev/rest/2024/05/vMI1meK.webp)
-
-### 主节点（Master Node）
-
-主节点负责管理整个集群的状态和调度任务，主要组件包括 API 服务器、控制器管理器、调度器和 etcd 存储。
-
-### 工作节点（Worker Node）
-
-工作节点负责运行 Pod，并由主节点进行管理。主要组件包括 kubelet 和 kube-proxy。
-
-### etcd 存储
-
-etcd 是一个分布式键值存储，用于保存集群的所有状态数据，包括节点信息、Pod 配置和服务发现数据。
-
-### 控制器管理器
-
-控制器管理器负责管理集群中的各种控制器，如副本控制器、节点控制器和终端点控制器，确保集群始终处于期望状态。
-
-### 调度器
-
-调度器负责将新创建的 Pod 分配到合适的工作节点上，确保资源的合理利用和负载均衡。
-
-### API 服务器
-
-API 服务器是 Kubernetes 的核心组件，提供了 RESTful API 接口，用于处理集群的所有操作请求，并与 etcd 进行通信。
-
-### kubelet 和 kube-proxy
-
-kubelet 是运行在每个工作节点上的代理，负责管理节点上的 Pod，确保它们按照期望状态运行。kube-proxy 负责管理节点上的网络规则，确保服务的负载均衡和网络通信。
-
-## 4. 安装和设置 Kubernetes
-
-### 安装 Minikube（本地测试环境）
-
-Minikube 是一个轻量级的 Kubernetes 实现，适用于本地开发和测试。以下是安装步骤：
-
-1. 下载并安装 Minikube：https://minikube.sigs.k8s.io/docs/start/
-2. 启动 Minikube：`minikube start`
-3. 验证安装：`kubectl get nodes`
-
-### 安装 kubectl（Kubernetes 命令行工具）
-
-kubectl 是 Kubernetes 的命令行工具，用于与集群进行交互。以下是安装步骤：
-
-1. 下载并安装 kubectl：https://kubernetes.io/docs/tasks/tools/install-kubectl/
-2. 配置 kubectl 连接到 Minikube：`kubectl config use-context minikube`
-3. 验证安装：`kubectl cluster-info`
-
-## 5. 创建和管理 Pods
-
-### 使用 `kubectl` 创建 Pod
-
-以下是创建一个简单 Pod 的示例：
-
-```yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: my-pod
-spec:
-  containers:
-  - name: my-container
-    image: nginx
-    ports:
-    - containerPort: 80
+```bash
+minikube start --cpus=4 --memory=8g --driver=docker
+kubectl get nodes
+kubectl cluster-info
 ```
 
-使用以下命令创建 Pod：
+`kubectl` 单独安装，minikube 会把 context 写进 `~/.kube/config`，用 `kubectl config use-context minikube` 切换。
 
-```sh
-kubectl apply -f my-pod.yaml
-```
+一个必须知道的限制：minikube 里 `type: LoadBalancer` 的 Service 的 `EXTERNAL-IP` 会一直是 `<pending>`，因为它没有云厂商的负载均衡器。要么另开一个终端跑 `minikube tunnel`，要么用 `minikube service <name>` 直接打开。kind 集群同理，需要装 MetalLB 之类的实现。
 
-### 查看 Pod 状态
-
-使用以下命令查看 Pod 的状态：
-
-```sh
-kubectl get pods
-```
-
-### 删除 Pod
-
-使用以下命令删除 Pod：
-
-```sh
-kubectl delete pod my-pod
-```
-
-## 6. 部署应用
-
-### 创建 Deployment
-
-以下是创建一个 Deployment 的示例：
+## 四、部署与滚动更新
 
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-deployment
+  name: web
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: my-app
+      app: web
   template:
     metadata:
       labels:
-        app: my-app
+        app: web
     spec:
       containers:
-      - name: my-container
-        image: nginx
+      - name: web
+        image: nginx:1.27
         ports:
         - containerPort: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        limits:
+          memory: 256Mi
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 3
 ```
 
-使用以下命令创建 Deployment：
-
-```sh
-kubectl apply -f my-deployment.yaml
+```bash
+kubectl apply -f web.yaml
+kubectl rollout status deployment/web
+kubectl rollout history deployment/web
+kubectl rollout undo deployment/web                 # 回上一版
+kubectl rollout undo deployment/web --to-revision=2 # 回指定版本
 ```
 
-### 更新 Deployment
+`kubectl set image deployment/web web=nginx:1.28` 也能触发更新，但它改的是线上对象，下次 `apply` 会把文件里的旧镜像盖回去。以文件为准，改文件再 apply。
 
-编辑 Deployment 的配置文件，然后使用以下命令应用更新：
+两个探针的区别直接决定可用性：
 
-```sh
-kubectl apply -f my-deployment.yaml
-```
+- `readinessProbe` 失败只是把 Pod 从 Service 后端摘掉，流量不再进来，容器继续运行
+- `livenessProbe` 失败会**重启容器**，探针路径依赖外部服务时容易引发反复重启
 
-### 回滚 Deployment
+`limits` 只写 `memory` 不写 `cpu` 是常见做法：内存超限被杀（`OOMKilled`），CPU 超限只是被限流，不会杀进程。
 
-使用以下命令回滚到上一个版本：
+## 五、Service 与访问
 
-```sh
-kubectl rollout undo deployment/my-deployment
-```
-
-## 7. 服务发现和负载均衡
-
-### 创建 Service
-
-以下是创建一个 Service 的示例：
+| 类型 | 用途 | 前提 |
+|---|---|---|
+| ClusterIP | 集群内访问，默认类型 | 无 |
+| NodePort | 每个节点开一个高位端口 | 端口范围默认 30000-32767 |
+| LoadBalancer | 云上分配外部 IP | 云厂商或 MetalLB |
+| ExternalName | 映射到外部域名 | 仅 DNS 记录 |
 
 ```yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: my-service
+  name: web
 spec:
   selector:
-    app: my-app
+    app: web
   ports:
-  - protocol: TCP
-    port: 80
+  - port: 80
     targetPort: 80
 ```
 
-使用以下命令创建 Service：
+`port` 是 Service 自身端口，`targetPort` 是容器端口。`targetPort` 与容器实际监听端口不一致，是访问不通的头号原因。
 
-```sh
-kubectl apply -f my-service.yaml
+关于负载均衡，两个常见误解：
+
+- Service 没有「轮询 / 最小连接数」这类可配策略。kube-proxy 在 iptables 模式下按概率随机转发，IPVS 模式才支持 `rr`、`lc` 等调度算法，且要在 kube-proxy 配置里显式指定。
+- `sessionAffinity: ClientIP` 只做会话保持，让同一客户端落到同一 Pod，不是负载均衡策略；默认值是 `None`。
+
+集群内访问用 DNS：`web`、`web.default`、`web.default.svc.cluster.local` 三种写法依次更明确，跨命名空间必须带命名空间名。
+
+排查访问不通，第一步看后端有没有被选中：
+
+```bash
+kubectl get endpoints web      # ENDPOINTS 为空说明 selector 没匹配上 Pod
+kubectl get pods --show-labels
 ```
 
-### 暴露 Deployment
+`kubectl expose` 也能直接生成 Service，但它只带上 `port`/`targetPort` 的推断结果，后续仍要自己维护 YAML。
 
-使用以下命令将 Deployment 暴露为一个 Service：
+`Endpoints` 对象从 1.33 起标记废弃、由 `EndpointSlice` 取代，`kubectl get endpoints` 目前仍能读到汇总结果，写入侧则应该用 EndpointSlice。
 
-```sh
-kubectl expose deployment my-deployment --type=LoadBalancer --name=my-service
+## 六、配置与存储
+
+ConfigMap 和 Secret 都可以挂成环境变量或文件：
+
+```bash
+kubectl create configmap app-config --from-file=config.yaml
+kubectl create secret generic db-secret --from-literal=password='...'
 ```
 
-### 负载均衡策略
+三个限制条件必须记住：
 
-Kubernetes 提供了多种负载均衡策略，如轮询、最小连接数等。可以通过配置 Service 的 `sessionAffinity` 属性来实现不同的策略。
+1. **以环境变量方式注入的值不会随 ConfigMap 更新而更新**，只有重启 Pod 才生效；以卷挂载的方式会在几十秒到几分钟内同步（受 kubelet 同步周期影响），但应用要自己重新读文件。
+2. **Secret 默认只是 base64 编码，不是加密**。拥有 etcd 读权限或能 `kubectl get secret -o yaml` 的人都能还原明文，生产环境需要开启 etcd 静态加密或接外部 KMS。
+3. Secret 的 `data` 字段要求 base64，明文写在 `stringData` 里，提交时 kube-apiserver 会转成 base64 存储。
 
-## 8. 配置和存储管理
-
-### 使用 ConfigMap 和 Secret 管理配置
-
-以下是创建一个 ConfigMap 的示例：
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: my-config
-data:
-  key1: value1
-  key2: value2
-```
-
-使用以下命令创建 ConfigMap：
-
-```sh
-kubectl apply -f my-config.yaml
-```
-
-以下是创建一个 Secret 的示例：
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: my-secret
-type: Opaque
-data:
-  username: YWRtaW4=
-  password: MWYyZDFlMmU=
-```
-
-使用以下命令创建 Secret：
-
-```sh
-kubectl apply -f my-secret.yaml
-```
-
-### 使用 PersistentVolume 和 PersistentVolumeClaim 管理存储
-
-以下是创建一个 PersistentVolume 的示例：
-
-```yaml
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: my-pv
-spec:
-  capacity:
-    storage: 1Gi
-  accessModes:
-    - ReadWriteOnce
-  hostPath:
-    path: /mnt/data
-```
-
-使用以下命令创建 PersistentVolume：
-
-```sh
-kubectl apply -f my-pv.yaml
-```
-
-以下是创建一个 PersistentVolumeClaim 的示例：
+存储的层次是 PV（实际存储）→ PVC（申请）→ Pod 挂载：
 
 ```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: my-pvc
+  name: data
 spec:
   accessModes:
-    - ReadWriteOnce
+  - ReadWriteOnce
   resources:
     requests:
       storage: 1Gi
 ```
 
-使用以下命令创建 PersistentVolumeClaim：
+手动建 PV 再用 `hostPath` 只适合单节点测试：Pod 换到别的节点就看不到原来的数据，且没有任何副本保护。生产用 StorageClass 做动态供给，PVC 声明后自动创建底层卷；`ReadWriteOnce` 的含义是「单节点读写」，不是「单 Pod 读写」，同节点多个 Pod 可以同时挂。
 
-```sh
-kubectl apply -f my-pvc.yaml
+## 七、排查顺序
+
+| 现象 | 先看什么 |
+|---|---|
+| Pod `Pending` | `kubectl describe pod` 的 Events：资源不足、污点、亲和性 |
+| `ImagePullBackOff` | 镜像名与 tag 是否存在；私有仓库要配 `imagePullSecrets` |
+| `CrashLoopBackOff` | `kubectl logs <pod> --previous` 看上次崩溃的日志 |
+| `Running` 但没流量 | `kubectl get endpoints` 是否为空，探针是否通过 |
+| Service 访问不通 | selector、`targetPort`、NetworkPolicy |
+| 节点 `NotReady` | `kubectl describe node`，再看节点上 kubelet 与运行时状态 |
+
+`kubectl describe node` 输出的是节点状态和各 Pod 的资源汇总，不是日志；节点日志要用 `journalctl -u kubelet` 在节点上查，或接入统一的日志采集。
+
+常用调试动作：
+
+```bash
+kubectl get events --sort-by=.lastTimestamp
+kubectl logs -f deploy/web --tail=50
+kubectl exec -it <pod> -- sh
+kubectl port-forward svc/web 8080:80
 ```
 
-## 9. 监控和日志
+`kubectl exec` 进不去时，用 `kubectl debug` 起一个临时容器挂到目标 Pod 的命名空间里，镜像里没有 shell 的极简镜像只能这样查。
 
-### 查看 Pod 和节点日志
+## 参考
 
-使用以下命令查看 Pod 的日志：
-
-```sh
-kubectl logs my-pod
-```
-
-使用以下命令查看节点的日志：
-
-```sh
-kubectl describe node my-node
-```
-
-### 使用 Prometheus 和 Grafana 进行监控
-
-Prometheus 和 Grafana 是常用的监控解决方案，可以用于监控 Kubernetes 集群的状态和性能。以下是安装和配置步骤：
-
-1. 安装 Prometheus：https://prometheus.io/docs/prometheus/latest/installation/
-2. 安装 Grafana：https://grafana.com/docs/grafana/latest/installation/
-3. 配置 Prometheus 采集 Kubernetes 指标：https://prometheus.io/docs/prometheus/latest/configuration/configuration/
-4. 在 Grafana 中添加 Prometheus 数据源：https://grafana.com/docs/grafana/latest/datasources/prometheus/
-
-## 10. 总结
-
-通过本文的介绍，我们了解了 Kubernetes 的基本概念、架构与原理，以及如何安装和配置 Kubernetes，创建和管理 Pod，部署应用，服务发现和负载均衡，配置和存储管理，以及监控和日志。Kubernetes 提供了强大的功能和灵活的架构，是现代容器化应用的理想选择。
-
-推荐的学习资源：
-1. [Kubernetes 官方文档](https://kubernetes.io/docs/home/)
-2. [Kubernetes Up & Running](https://www.oreilly.com/library/view/kubernetes-up/9781491935675/)
-3. [CNCF Kubernetes 课程](https://www.cncf.io/certification/training/)
+- [Kubernetes 组件与架构](https://kubernetes.io/docs/concepts/architecture/)
+- [Service 与网络](https://kubernetes.io/docs/concepts/services-networking/service/)
+- [Secret 说明](https://kubernetes.io/docs/concepts/configuration/secret/)
+- [应用故障排查](https://kubernetes.io/docs/tasks/debug/debug-application/)

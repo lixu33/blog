@@ -2,224 +2,212 @@
 isTimeLine: true
 sticky: 4
 title: "Docker: From Beginner to Practice"
-description: "Docker: build, ship, and run applications with ease! This article walks you through Docker's core concepts, basic commands, and hands-on examples, and explains its underlying principles in detail—helping you get started quickly and begin your containerization journey."
+description: Explain image layer structure; the rule that build cache is invalidated instruction by instruction; the isolation boundaries provided by namespaces and cgroups; port mapping and the two ways to mount data volumes; multi-stage build slimming techniques; and the troubleshooting order for failures such as a container exiting immediately after startup, inaccessible ports, and a stop that waits ten seconds before being force-killed, plus how to read common exit codes in actual troubleshooting.
 date: 2024-05-17
+updated: 2026-10-31
 tags:
 - Docker
 - DevOps
 - Microservices
-Categories:
-- Docker
-- Containerization Technology
 categories:
 - DevOps Operations
-translatedFrom: abb4caca2db0a4a4
+- Containerization technology
+head:
+- - meta
+  - name: keywords
+    content: Docker,Dockerfile,Image Layers,overlay2,namespace,cgroup,Data Volume,Multi-stage build
+translatedFrom: f5443a54c755dda6
 ---
-# Docker Summary - From Beginner to Practice
+# Docker: From Beginner to Practice
 
-Have you ever been overwhelmed by project environment configuration issues? Have you ever thought about packaging an application into an independent unit and deploying it easily to any machine? Docker, this open-source application container engine, perfectly solves these problems! It packages applications and dependencies into a lightweight "container," ensuring that the application runs consistently in any environment—just like putting an application into a shipping container and transporting it freely anytime, anywhere!
+The same code runs fine on a development machine, but fails to start on the server because of a glibc or Node version mismatch; an image pushed to the registry is 1.2 GB, and every release pull takes several minutes; once the container restarts, all data written inside it is gone. These three types of problems correspond to how images are built, how containers run, and where data is stored.
 
-## 1. Docker: The Containerization Revolution in Software Development
+The following sections proceed in this order: isolation mechanisms, image layering, common commands, writing Dockerfiles, running and persistence, slimming down, and troubleshooting. All commands are based on Docker Engine on Linux.
 
-Docker's core philosophy is "build once, run anywhere." Based on Linux container technology (LXC), it packages applications and their dependencies into an independent, portable container, and implements version control and distribution through the image mechanism.
+## Four Things to Remember First
 
-### 1.1 Advantages of Docker:
+1. **An image is a set of read-only layers; a container is an image plus a writable layer**. The writable layer disappears when the container is deleted, so data that must be retained has to be mounted as a volume.
+2. **A container is an ordinary Linux process**. Isolation relies on namespaces, resource limits rely on cgroups, and it has no kernel of its own.
+3. **Build cache is invalidated instruction by instruction**: if the text of an instruction or the files it `COPY`s change, the cache for that instruction and all subsequent layers is invalidated.
+4. **A container exits when PID 1 exits**. `docker run -d` only puts the process in the background; it does not mean the container stays running.
 
-* **Environment consistency:** Say goodbye to the awkwardness of "it works on my machine." Docker ensures that applications behave consistently in development, testing, and production environments.
-* **Fast deployment:** Containers start in seconds, enabling rapid application deployment and improving development efficiency.
-* **Resource isolation:** Each container has its own independent resource space and does not interfere with others, improving system security and stability.
-* **Version control:** Docker images record version information for applications and dependencies, making version rollback and management convenient.
-* **Lightweight and efficient:** Compared with virtual machines, Docker is more lightweight, uses fewer resources, and runs more efficiently.
+## 1. What Containers Isolate
 
-### 1.2 Core Components of Docker:
+Early Docker (before 0.9) used LXC directly to manage containers, then switched to its own implementation, libcontainer; in 2015 this part was donated to the OCI and evolved into runc. The current call chain is:
 
-* **Image:** A read-only template for an application, containing the application code, runtime environment, library files, etc. It is the basis for creating containers.
-* **Container:** A running instance of an image, and an isolated, portable runtime unit.
-* **Repository:** A place for storing Docker images, which can be a public repository such as Docker Hub or a private repository.
-* **Daemon:** A process running in the background, responsible for managing Docker resources such as images and containers.
-* **Client:** A tool for interacting with the Docker daemon, used to build, run, and manage Docker containers.
+```text
+docker CLI → dockerd → containerd → containerd-shim → runc → 容器进程
+```
 
-## 2. Deep Dive into Docker Principles: Unveiling the Magic of Containerization
+runc only creates the process according to the OCI specification, sets up namespaces and cgroups, and exits after creation; the container process is hosted by the shim. So “Docker is based on LXC” is an outdated statement—LXC was only used as the container driver in versions before 0.9.
 
-Docker's magic lies in its clever application of Linux container technology. Let's take a look and see how Docker uses Linux kernel features to achieve the magic of containerization!
+Namespaces determine what is visible:
 
-### 2.1 Linux Container Technology (LXC): The Cornerstone of Docker
+| namespace | Isolated content |
+|---|---|
+| PID | Process IDs; inside the container, it sees its own PID 1 |
+| NET | Network interfaces, IP, ports, routing table |
+| MNT | Mount points and filesystem view |
+| UTS | Hostname and domain name |
+| IPC | Semaphores, message queues |
+| USER | User and UID mapping |
 
-Linux container technology is the cornerstone of Docker. It uses the Linux kernel's **Namespace** and **Cgroups** features to provide isolated resource spaces and control mechanisms for running processes.
+cgroups determine how much can be used:
 
-* **Namespace:** Provides processes with an isolated view of system resources, including process IDs, network interfaces, mount points, etc., making processes appear to run in an independent operating system.
-* **Cgroups:** Limits process usage of system resources such as CPU, memory, and IO, ensuring that containers do not excessively consume system resources and affect other applications.
+```bash
+docker run -d --memory 512m --memory-swap 512m --cpus 1.5 nginx
+```
 
-### 2.2 Docker Architecture: Layered Architecture, Efficient and Flexible
+Note that when `--memory-swap` is not set, it defaults to twice `--memory`; to completely disable swap, set both to the same value. Under cgroup v2, these limits are managed uniformly by systemd's `docker-<id>.scope`, and `docker stats` reads the numbers from it.
 
-Docker adopts a layered architecture, breaking the image build process into a series of layers, each of which is an incremental change to the filesystem. This layered structure brings the following advantages:
+Namespaces and cgroups are both kernel features, so containers run natively on Linux; Docker Desktop on macOS and Windows actually runs inside a lightweight VM, and file mounts and networking incur an extra layer of overhead.
 
-* **Image reuse:** Different images can share the same base layers, reducing storage space and download time.
-* **Fast builds:** When building an image, only the layers that have changed need to be rebuilt, speeding up image builds.
-* **Version control:** Each layer has a unique ID, making version management and rollback convenient.
+**The special nature of PID 1**: process 1 inside the container is responsible for reaping zombie processes and forwarding signals. When the application itself does not handle `SIGTERM`, `docker stop` waits 10 seconds and then sends `SIGKILL`, which manifests as “stopping is slow” or “data was not flushed to disk in time.” Add `--init` to let tini act as PID 1.
 
-### 2.3 Docker Images: The Build Blueprint for Containers
+## 2. Image Layering and Build Cache
 
-A Docker image is a read-only template containing everything needed to run an application: the filesystem, libraries, environment variables, and configurations. It uses Union FS (Union File System) technology to overlay multiple filesystem layers into a unified view.
+An image is composed of several read-only layers stacked together, and at runtime a writable layer is added on top. The default storage driver is `overlay2` (when the underlying filesystem is ext4 or xfs). Reads and writes are done through copy-on-write: modifying a file first copies it from a lower layer to the writable layer, then modifies it.
 
-### 2.4 Docker Containers: Running Instances of Images
+This has two direct consequences:
 
-A Docker container is a running instance of a Docker image and is a lightweight, isolated runtime environment. When we run a container, Docker creates a new Linux container, loads the image into the container, and starts the application process.
+- Multiple images based on the same base image share the lower layers, saving both disk space and pull traffic.
+- Writing many small files inside a container is slower than on the host; applications such as databases should mount their data directories as volumes.
 
-### 2.5 Docker Repositories: Storage and Distribution Centers for Images
+The build cache invalidation rules are worth remembering separately:
 
-Docker repositories are used to store and distribute Docker images and can be public repositories such as Docker Hub or private repositories. Users can push their own built images to a repository and can also pull images built by others from a repository.
+| Instruction | When the cache is invalidated |
+|---|---|
+| `COPY package*.json ./` | Only when the contents of these two files change |
+| `RUN npm ci` | When the previous instruction is invalidated, or the command text changes |
+| `COPY . .` | When any source code changes |
 
-## 3. Docker Basic Commands: Your Containerization Tools
+So the order is “copy dependency manifests first → install dependencies → then copy source code.” If reversed—first `COPY . .` and then install dependencies—a one-line code change requires reinstalling all dependencies. The same applies to `.dockerignore`: changes to ignored files do not trigger cache invalidation, and it also prevents `node_modules` and `.git` from being stuffed into the build context and slowing down uploads. Common contents:
 
-Mastering Docker starts with becoming familiar with common commands!
+```text
+node_modules
+.git
+dist
+*.log
+```
 
-| Command       | Description                                           |
-| ---------- | ---------------------------------------------- |
-| docker version | View Docker version information                         |
-| docker search | Search for images on Docker Hub                     |
-| docker pull   | Download images from a repository                               |
-| docker images  | List local images                                   |
-| docker run   | Create and start a container                               |
-| docker ps    | List running containers                           |
-| docker stop  | Stop a container                                       |
-| docker restart | Restart a container                                       |
-| docker kill  | Force stop a container                                   |
-| docker rm    | Delete a container                                       |
-| docker rmi   | Delete an image                                       |
-| docker build  | Build an image using a Dockerfile                 |
-| docker exec  | Execute commands in a running container                     |
-| docker logs  | View container logs                                   |
+## 3. Common Commands
 
-## 4. Dockerfile: Customize Your Own Image
+| Command | Purpose |
+|---|---|
+| `docker pull` / `push` | Pull or push images |
+| `docker images` | List local images |
+| `docker build -t name:tag .` | Build using the Dockerfile in the current directory |
+| `docker run` | Create and start a container |
+| `docker ps -a` | List containers (including exited ones) |
+| `docker logs -f --tail 100` | Follow logs |
+| `docker exec -it <id> sh` | Enter a running container |
+| `docker inspect` | View full configuration and status |
+| `docker stats` | Real-time resource usage |
+| `docker rm` / `rmi` | Remove a container / image |
+| `docker system df` | Show disk usage of images, containers, and volumes |
+| `docker system prune` | Clean up unused objects |
 
-A Dockerfile is a text file containing instructions for building a Docker image, like a blueprint for building an application.
+`docker ps` shows only running containers by default. When a container “disappears right after starting,” add `-a` to see the exit code.
 
-### 4.1 Example: Building a Node.js Application Image
+## 4. Writing a Dockerfile
+
+Take a Node.js application as an example, using a multi-stage build to separate dependencies and runtime:
 
 ```dockerfile
-# 使用 Node.js 24 (LTS) 作为基础镜像
-FROM node:24
-
-# 设置工作目录
+FROM node:24-slim AS build
 WORKDIR /app
-
-# 复制 package.json 和 package-lock.json
 COPY package*.json ./
-
-# 安装依赖
-RUN npm install
-
-# 复制应用代码
+RUN npm ci
 COPY . .
 
-# 暴露端口
+FROM node:24-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=build /app/app.js ./
+USER node
 EXPOSE 3000
-
-# 启动命令
 CMD ["node", "app.js"]
 ```
 
-### 4.2 Explanation:
+Key points:
 
-1. `FROM node:24`: Specify the base image. Here, the official Node.js 24 (LTS) image is used.
-2. `WORKDIR /app`: Set the working directory inside the container to `/app`; subsequent commands are executed in this directory.
-3. `COPY package*.json ./`: Copy the `package.json` and `package-lock.json` files to the working directory for installing dependencies.
-4. `RUN npm install`: Execute the `npm install` command in the container to install application dependencies.
-5. `COPY . .`: Copy all files from the current directory (the directory containing the Dockerfile) to the container working directory.
-6. `EXPOSE 3000`: Declare the port that the container listens on at runtime. Here, port 3000, commonly used by Node.js applications, is exposed.
-7. `CMD ["node", "app.js"]`: Specify the command executed when the container starts. Here, `npm start` is used to start the Node.js application.
+1. `FROM node:24-slim` — `slim` is much smaller than the default tag and still uses glibc, so native modules do not need to be recompiled; `alpine` uses musl, and dependencies with precompiled binary packages can easily fail at runtime with missing symbols.
+2. `npm ci` installs strictly according to `package-lock.json` and is reproducible; `npm install` may rewrite the lock file, making the image non-reproducible.
+3. `USER node` switches to non-root. Avoid running as root inside the container by default; otherwise, after a container escape, the impact could extend to the host.
+4. `EXPOSE 3000` only declares and documents the port; it does not publish it. Actual external exposure requires `-p`.
+5. `CMD` is the default command; a command appended after the image name, such as `docker run image sh`, **replaces** it. `ENTRYPOINT`, by contrast, is a fixed executable, and appended content becomes arguments.
+6. Only one `CMD` in a Dockerfile takes effect; if multiple are written, the last one overrides the previous ones.
 
-## 5. Docker in Practice: Build Your First Node.js Application
+## 5. Running Containers: Ports, Data, and Exits
 
-Next, we will use a simple Node.js application to demonstrate how to use Docker to build, run, and manage applications.
-
-### 5.1 Create a Node.js Application
-
-```javascript
-// app.js
-const express = require('express');
-const app = express();
-const port = 3000;
-
-app.get('/', (req, res) => {
-  res.send('Hello from Docker!');
-});
-
-app.listen(port, () => {
-  console.log(`App listening at http://localhost:${port}`);
-});
+```bash
+docker run -d --name app \
+  -p 8080:3000 \
+  -v app-data:/app/data \
+  -e NODE_ENV=production \
+  --restart unless-stopped \
+  my-node-app
 ```
 
-### 5.2 Create a Dockerfile
+- `-p 8080:3000` means “host port:container port.” If no host IP is specified, it listens on `0.0.0.0`; writing `-p 127.0.0.1:8080:3000` exposes it only to the local machine.
+- If the port is open but still inaccessible, first check whether the application is bound to `127.0.0.1` instead of `0.0.0.0`—the loopback address inside the container is not the same as on the host.
 
-Create a `Dockerfile` in the project root directory with the following content:
+There are two ways to mount data:
+
+| Type | Syntax | Suitable for |
+|---|---|---|
+| Named volume | `-v app-data:/app/data` | Databases, persistent data that needs backup |
+| Bind mount | `-v $(pwd)/data:/app/data` | Development, where code changes take effect immediately |
+
+Named volumes are managed by Docker and located at `/var/lib/docker/volumes/`. Deleting a container does not delete the volume; you must explicitly run `docker volume rm`. Bind mounts map a host directory directly and involve more permission and SELinux label issues (under SELinux, you need to add `:z`).
+
+Common reasons containers exit:
+
+```bash
+docker ps -a                    # 看 STATUS 里的退出码
+docker logs <id>                # 前台输出，应用崩溃的堆栈在这里
+docker inspect <id> --format '{{.State.ExitCode}} {{.State.OOMKilled}}'
+```
+
+Exit code `137` is basically receipt of `SIGKILL`; combined with `OOMKilled=true`, it means the memory limit was hit.
+
+## 6. Trimming Image Size
+
+| Technique | Effect |
+|---|---|
+| Switch to a `slim` base image | Typically saves hundreds of MB |
+| Multi-stage builds | Build toolchain doesn't end up in the final image |
+| Combine `RUN` steps and clean package caches | Fewer layers, no leftover `apt` cache |
+| `.dockerignore` | Shrinks the build context |
+
+When installing packages in Debian-based base images, write it as a single line:
 
 ```dockerfile
-# 使用 Node.js 24 (LTS) 作为基础镜像
-FROM node:24
-
-# 设置工作目录
-WORKDIR /app
-
-# 复制 package.json 和 package-lock.json 文件到工作目录
-COPY package*.json ./
-
-# 安装应用程序依赖
-RUN npm install
-
-# 复制应用程序代码到工作目录
-COPY . .
-
-# 暴露应用程序端口
-EXPOSE 3000
-
-# 定义启动命令
-CMD ["node", "app.js"]
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 ```
 
-### 5.3 Build the Image
+Writing `apt-get update` and `apt-get install` separately leaves stale package indexes in the cache layer.
 
-In the terminal, go to the directory containing the Dockerfile and run the following command to build the image:
+Use `docker history <image>` to see how much space each layer takes; to drill down to specific files, use tools like `dive`.
 
-```bash
-docker build -t my-node-app .
-```
+## 7. Troubleshooting Reference
 
-The `-t` parameter is used to specify the image name, which is named `my-node-app` here. `.` indicates the current directory where the Dockerfile is located.
+| Symptom | Common cause |
+|---|---|
+| Container exits immediately on start | Main process errors out; check `docker logs`; `-d` swallows foreground output |
+| `exec` reports container not running | Container has exited; confirm status with `docker ps -a` |
+| Port unreachable | No `-p` flag, or the app is bound to `127.0.0.1` inside the container |
+| `COPY` can't find file during build | Excluded by `.dockerignore`, or the path is relative to the build context |
+| Disk usage keeps growing | Dangling images and old containers piling up; check details with `docker system df` |
+| Garbled Chinese characters / wrong timezone | Slim images lack `tzdata` and locales; install them and set `TZ` |
+| Stopping a container takes 10 seconds | The app doesn't handle `SIGTERM`; add `--init` or implement signal handling |
 
-### 5.4 Run the Container
+## References
 
-After the image is built, run the following command to run the container:
-
-```bash
-docker run -d -p 8080:3000 my-node-app
-```
-
-*   The `-d` parameter indicates running the container in background mode.
-*   `-p 8080:3000` maps port 8080 on the host to port 3000 in the container, so you can access the application by visiting port 8080 on the host.
-
-### 5.5 Access the Application
-
-Open your browser and visit `http://localhost:8080`. You will see the page “Hello from Docker!” Congratulations, you have successfully run your first Node.js application using Docker!
-
-## 6. Docker: The Cornerstone of the Cloud-Native Era
-
-Docker is not just a tool, but a philosophy. It has driven the development of microservice architecture and cloud-native applications. The convenience, efficiency, and portability of Docker container technology make it an important cornerstone for building modern applications.
-
-### 6.1 Docker and Microservices:
-
-Docker is naturally suited to microservice architecture. Each microservice can be packaged into an independent container, enabling service isolation, independent deployment, and scaling.
-
-### 6.2 Docker and Cloud Native:
-
-Docker is an important infrastructure for cloud-native applications. Major cloud platforms provide support for Docker, making it easy for users to quickly deploy and manage applications.
-
-## 7. Summary: Start Your Docker Journey
-
-Docker has brought revolutionary changes to software development. It simplifies application deployment and improves development efficiency, making it a powerful tool that every developer should master. This article is only an introductory guide to Docker, and more exciting content awaits your exploration!
-
-## 8. Reference Resources
-
-* Docker official documentation: [https://docs.docker.com/](https://docs.docker.com/)
-* Docker Hub: [https://hub.docker.com/](https://hub.docker.com/)
+- [Docker build best practices](https://docs.docker.com/build/building/best-practices/)
+- [Dockerfile reference](https://docs.docker.com/reference/dockerfile/)
+- [overlay2 storage driver](https://docs.docker.com/engine/storage/drivers/overlay2/)
+- [docker container run command reference](https://docs.docker.com/reference/cli/docker/container/run/)

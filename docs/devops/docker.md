@@ -2,225 +2,212 @@
 isTimeLine: true
 sticky: 4
 title: Docker 从入门到实践
-description: Docker，轻松构建、发布和运行应用！本文将带你深入了解 Docker 的核心概念、基础指令以及实战案例，并详细解析 Docker 的底层原理，助你快速上手
-  Docker，开启容器化之旅！
+description: 讲清镜像分层结构、构建缓存按指令逐条失效的规则、namespace 与 cgroup 各自提供的隔离边界、端口映射与数据卷的两种挂法、多阶段构建瘦身手段，以及容器启动即退出、端口访问不通、停止要等十秒才被强杀等故障的排查顺序，并给出实际排查中常见退出码的读法。
 date: 2024-05-17
+updated: 2026-10-31
 tags:
 - Docker
 - DevOps
 - 微服务
-Categories:
-- Docker
-- 容器化技术
 categories:
 - DevOps 运维
+- 容器化技术
+head:
+- - meta
+  - name: keywords
+    content: Docker, Dockerfile, 镜像分层, overlay2, namespace, cgroup, 数据卷, 多阶段构建
 ---
 
-# Docker 总结 - 从入门到实践
+# Docker 从入门到实践
 
-你是否曾为项目环境配置问题焦头烂额？是否想过将应用打包成一个独立单元，轻松部署到任何机器？ Docker，这款开源的应用容器引擎，完美解决了这些难题！它将应用程序和依赖打包进一个轻量级的“容器”，确保应用在任何环境都能一致运行，就像将应用装进集装箱，随时随地自由运输！
+同一份代码在开发机上跑得好好的，上了服务器因为 glibc 或 Node 版本不一致启动失败；镜像推到仓库 1.2 GB，每次发布拉取都要几分钟；容器重启一次，写在里面的数据全没了。这三类问题分别对应镜像怎么构建、容器怎么运行、数据放在哪。
 
-## 1.  Docker: 软件开发的集装箱革命
+下面按隔离机制、镜像分层、常用命令、Dockerfile 写法、运行与持久化、瘦身、排查的顺序展开，命令都以 Linux 上的 Docker Engine 为准。
 
-Docker 的核心理念是“一次构建，随处运行”。它基于 Linux 容器技术（LXC），将应用及其依赖打包成一个独立、可移植的容器，并通过镜像机制实现版本控制和分发。
+## 先记住四件事
 
-### 1.1 Docker 的优势：
+1. **镜像是一组只读层，容器是镜像 + 一层可写层**。可写层随容器删除一起消失，需要保留的数据必须挂卷。
+2. **容器是一个普通 Linux 进程**，隔离靠 namespace，资源限额靠 cgroup，没有自己的内核。
+3. **构建缓存按指令逐条失效**：某条指令的文本或它 `COPY` 进来的文件变了，这条及之后所有层的缓存都作废。
+4. **容器随 PID 1 退出而退出**，`docker run -d` 只是把进程放到后台，不等于常驻。
 
-* **环境一致性：**  告别“在我的机器上可以运行”的尴尬，Docker 确保应用在开发、测试和生产环境中行为一致。
-* **快速部署：**  秒级启动容器，快速部署应用，提高开发效率。
-* **资源隔离：**  每个容器拥有独立的资源空间，互不干扰，提升系统安全性和稳定性。
-* **版本控制：**  Docker 镜像记录了应用和依赖的版本信息，方便版本回滚和管理。
-* **轻量高效：**  相比虚拟机，Docker 更加轻量级，占用资源更少，运行效率更高。
+## 一、容器隔离了什么
 
-### 1.2 Docker 的核心组件：
+早期 Docker（0.9 之前）直接用 LXC 管理容器，之后换成自己实现的 libcontainer；2015 年这部分捐给 OCI，演化为 runc。现在的调用链是：
 
-* **镜像 (Image):**  应用的只读模板，包含应用代码、运行环境、库文件等，是创建容器的基础。
-* **容器 (Container):**  镜像的运行实例，是隔离的、可移植的运行单元。
-* **仓库 (Repository):**  存储 Docker 镜像的地方，可以是公共仓库 Docker Hub 或私有仓库。
-* **守护进程 (Daemon):**  后台运行的进程，负责管理镜像、容器等 Docker 资源。
-* **客户端 (Client):**  与 Docker 守护进程交互的工具，用于构建、运行和管理 Docker 容器。
+```text
+docker CLI → dockerd → containerd → containerd-shim → runc → 容器进程
+```
 
-## 2. 深入 Docker 原理：揭秘容器化魔法
+runc 只按 OCI 规范创建进程、配好 namespace 和 cgroup，创建完就退出，容器进程由 shim 托管。所以「Docker 基于 LXC」是过时说法，LXC 只在 0.9 之前的版本里作为容器驱动。
 
-Docker 的神奇之处在于它对 Linux 容器技术的巧妙应用。让我们来一探究竟，看看 Docker 如何利用 Linux 内核特性实现容器化魔法！
+namespace 决定看得见什么：
 
-### 2.1 Linux 容器技术 (LXC)： Docker 的基石
+| namespace | 隔离内容 |
+|---|---|
+| PID | 进程号，容器内看到自己的 1 号进程 |
+| NET | 网卡、IP、端口、路由表 |
+| MNT | 挂载点与文件系统视图 |
+| UTS | 主机名与域名 |
+| IPC | 信号量、消息队列 |
+| USER | 用户与 UID 映射 |
 
-Linux 容器技术是 Docker 的基石，它利用 Linux 内核的 **Namespace** 和 **Cgroups**  特性，为运行的进程提供隔离的资源空间和控制机制。
+cgroup 决定能用多少：
 
-* **Namespace（命名空间）：**  为进程提供隔离的系统资源视图，包括进程 ID、网络接口、挂载点等，使进程仿佛运行在独立的操作系统中。
-* **Cgroups（控制组）：**  限制进程对系统资源的使用，如 CPU、内存、IO 等，确保容器不会过度消耗系统资源，影响其他应用运行。
+```bash
+docker run -d --memory 512m --memory-swap 512m --cpus 1.5 nginx
+```
 
-### 2.2 Docker 架构：分层架构，高效灵活
+注意 `--memory-swap` 不设时默认是 `--memory` 的两倍，想彻底禁用 swap 就得两者设成同一个值。cgroup v2 下这些限制由 systemd 的 `docker-<id>.scope` 统一管理，`docker stats` 读的就是它的数字。
 
-Docker 采用分层架构，将镜像构建过程分解为一系列层，每层都是文件系统的增量变化。这种分层结构带来了以下优势：
+namespace 和 cgroup 都是内核特性，所以 Linux 上原生运行；macOS 和 Windows 上的 Docker Desktop 实际跑在一个轻量虚拟机里，文件挂载和网络会有额外一层开销。
 
-* **镜像复用：**  不同镜像可以共享相同的基础层，减少存储空间和下载时间。
-* **快速构建：**  构建镜像时，只有发生变化的层需要重新构建，加快了镜像构建速度。
-* **版本控制：**  每层都有唯一的 ID，方便进行版本管理和回滚。
+**PID 1 的特殊性**：容器里 1 号进程要负责回收僵尸进程、转发信号。应用自己不处理 `SIGTERM` 时，`docker stop` 会等 10 秒然后 `SIGKILL`，表现为「停止很慢」或「数据没来得及落盘」。加 `--init` 让 tini 当 1 号进程即可。
 
-### 2.3 Docker 镜像：容器的构建蓝图
+## 二、镜像分层与构建缓存
 
-Docker 镜像是一个只读模板，包含运行应用所需的一切文件系统、库、环境变量和配置。它采用 Union FS（联合文件系统）技术，将多层文件系统叠加成一个统一视图。
+镜像由若干只读层叠加，运行时在最上面再加一层可写层。默认存储驱动是 `overlay2`（底层文件系统为 ext4 或 xfs 时），读写通过写时复制完成：改一个文件会先把它从下层拷到可写层，再修改。
 
-### 2.4 Docker 容器：镜像的运行实例
+这带来两个直接后果：
 
-Docker 容器是 Docker 镜像的运行实例，是轻量级的、隔离的运行环境。当我们运行一个容器时，Docker 会创建一个新的 Linux 容器，并在容器中加载镜像，启动应用进程。
+- 同一基础镜像的多个镜像共享底层，磁盘和拉取流量都省
+- 容器内大量写小文件时性能低于宿主机，数据库这类应用应把数据目录挂卷
 
-### 2.5 Docker 仓库：镜像的存储和分发中心
+构建缓存的失效规则值得单独记：
 
-Docker 仓库用于存储和分发 Docker 镜像，可以是公共仓库 Docker Hub 或私有仓库。用户可以将自己构建的镜像推送到仓库，也可以从仓库拉取其他人构建的镜像。
+| 指令 | 缓存何时失效 |
+|---|---|
+| `COPY package*.json ./` | 只有这两个文件内容变了 |
+| `RUN npm ci` | 上一条失效，或命令文本变了 |
+| `COPY . .` | 任意源码改动 |
 
-## 3. Docker 基础指令：你的容器化利器
+所以顺序是「先拷依赖清单 → 装依赖 → 再拷源码」。反过来写成先 `COPY . .` 再装依赖，改一行代码就要重装全部依赖。`.dockerignore` 同理——被忽略的文件变化不会触发缓存失效，也能避免把 `node_modules`、`.git` 塞进构建上下文拖慢上传。常见内容：
 
-掌握 Docker，从熟悉常用指令开始！
+```text
+node_modules
+.git
+dist
+*.log
+```
 
-| 指令       | 描述                                           |
-| ---------- | ---------------------------------------------- |
-| docker version | 查看 Docker 版本信息                         |
-| docker search | 在 Docker Hub 上搜索镜像                     |
-| docker pull   | 从仓库下载镜像                               |
-| docker images  | 列出本地镜像                                   |
-| docker run   | 创建并启动容器                               |
-| docker ps    | 列出正在运行的容器                           |
-| docker stop  | 停止容器                                       |
-| docker restart | 重启容器                                       |
-| docker kill  | 强制停止容器                                   |
-| docker rm    | 删除容器                                       |
-| docker rmi   | 删除镜像                                       |
-| docker build  | 使用 Dockerfile 构建镜像                 |
-| docker exec  | 在运行的容器中执行命令                     |
-| docker logs  | 查看容器日志                                   |
+## 三、常用命令
 
-## 4. Dockerfile：定制你的专属镜像
+| 命令 | 用途 |
+|---|---|
+| `docker pull` / `push` | 拉取、推送镜像 |
+| `docker images` | 列出本地镜像 |
+| `docker build -t name:tag .` | 用当前目录的 Dockerfile 构建 |
+| `docker run` | 创建并启动容器 |
+| `docker ps -a` | 列出容器（含已退出） |
+| `docker logs -f --tail 100` | 跟踪日志 |
+| `docker exec -it <id> sh` | 进入运行中的容器 |
+| `docker inspect` | 查看完整配置与状态 |
+| `docker stats` | 实时资源占用 |
+| `docker rm` / `rmi` | 删除容器 / 镜像 |
+| `docker system df` | 统计镜像、容器、卷占用 |
+| `docker system prune` | 清理未使用的对象 |
 
-Dockerfile 是一个文本文件，包含构建 Docker 镜像的指令，如同构建应用的蓝图。
+`docker ps` 默认只显示运行中的容器，容器「启动就没了」时加 `-a` 才能看到退出码。
 
-### 4.1  示例：构建 Node.js 应用镜像
+## 四、写 Dockerfile
+
+以 Node.js 应用为例，用多阶段构建把依赖和运行时分开放：
 
 ```dockerfile
-# 使用 Node.js 24 (LTS) 作为基础镜像
-FROM node:24
-
-# 设置工作目录
+FROM node:24-slim AS build
 WORKDIR /app
-
-# 复制 package.json 和 package-lock.json
 COPY package*.json ./
-
-# 安装依赖
-RUN npm install
-
-# 复制应用代码
+RUN npm ci
 COPY . .
 
-# 暴露端口
+FROM node:24-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=build /app/app.js ./
+USER node
 EXPOSE 3000
-
-# 启动命令
 CMD ["node", "app.js"]
 ```
 
-### 4.2  解释：
+要点：
 
-1. `FROM node:24`:  指定基础镜像，这里使用官方提供的 Node.js 24 (LTS) 镜像。
-2. `WORKDIR /app`: 设置容器内工作目录为 `/app`，后续命令都在此目录下执行。
-3. `COPY package*.json ./`:  复制 `package.json` 和 `package-lock.json` 文件到工作目录，用于安装依赖。
-4. `RUN npm install`:  在容器中执行 `npm install` 命令安装应用依赖。
-5. `COPY . .`:  将当前目录（Dockerfile 所在目录）下的所有文件复制到容器工作目录。
-6. `EXPOSE 3000`:  声明容器运行时监听的端口，这里暴露 Node.js 应用常用的 3000 端口。
-7. `CMD ["node", "app.js"]`:  指定容器启动时执行的命令，这里使用 `npm start` 启动 Node.js 应用。
+1. `FROM node:24-slim` —— `slim` 比默认标签小得多且仍是 glibc，原生模块不用重新编译；`alpine` 用 musl，装了带预编译二进制包的依赖容易在运行时报找不到符号。
+2. `npm ci` 严格按 `package-lock.json` 安装，可重复；`npm install` 可能改写 lock 文件，镜像因此不可复现。
+3. `USER node` 切换为非 root，避免容器内默认以 root 运行，否则容器逃逸后影响范围会扩大到宿主机。
+4. `EXPOSE 3000` 只是声明和文档作用，不做端口发布；真正对外要用 `-p`。
+5. `CMD` 是默认命令，`docker run image sh` 这种在镜像名后追加的命令会**替换**它；`ENTRYPOINT` 则是固定的可执行文件，追加内容变成参数。
+6. 一个 Dockerfile 里只有一个 `CMD` 生效，写多个时最后一个覆盖前面的。
 
-## 5.  Docker 实战：构建你的第一个 Node.js 应用
+## 五、运行容器：端口、数据、退出
 
-接下来，我们将结合一个简单的 Node.js 应用，演示如何使用 Docker 构建、运行和管理应用。
-
-### 5.1 创建 Node.js 应用
-
-```javascript
-// app.js
-const express = require('express');
-const app = express();
-const port = 3000;
-
-app.get('/', (req, res) => {
-  res.send('Hello from Docker!');
-});
-
-app.listen(port, () => {
-  console.log(`App listening at http://localhost:${port}`);
-});
+```bash
+docker run -d --name app \
+  -p 8080:3000 \
+  -v app-data:/app/data \
+  -e NODE_ENV=production \
+  --restart unless-stopped \
+  my-node-app
 ```
 
-### 5.2  创建 Dockerfile
+- `-p 8080:3000` 是「宿主机端口:容器端口」。不写宿主机 IP 时监听 `0.0.0.0`，写成 `-p 127.0.0.1:8080:3000` 则只对本机开放。
+- 端口通了但仍访问不到，先查应用是否绑在 `127.0.0.1` 而不是 `0.0.0.0`——容器内的回环地址和宿主机不是同一个。
 
-在项目根目录下创建 `Dockerfile` 文件，内容如下：
+数据有两种挂法：
+
+| 类型 | 写法 | 适用 |
+|---|---|---|
+| 命名卷 | `-v app-data:/app/data` | 数据库、需要备份的持久数据 |
+| 绑定挂载 | `-v $(pwd)/data:/app/data` | 开发时改代码即时生效 |
+
+命名卷由 Docker 管理，位置在 `/var/lib/docker/volumes/`，删容器不会删卷，要显式 `docker volume rm`。绑定挂载直接映射宿主机目录，权限和 SELinux 标签问题更多（SELinux 下需要加 `:z`）。
+
+容器退出的常见原因：
+
+```bash
+docker ps -a                    # 看 STATUS 里的退出码
+docker logs <id>                # 前台输出，应用崩溃的堆栈在这里
+docker inspect <id> --format '{{.State.ExitCode}} {{.State.OOMKilled}}'
+```
+
+退出码 `137` 基本是收到 `SIGKILL`，配合 `OOMKilled=true` 就是撞了内存上限。
+
+## 六、镜像瘦身
+
+| 手段 | 效果 |
+|---|---|
+| 换 `slim` 基础镜像 | 通常省几百 MB |
+| 多阶段构建 | 构建工具链不进最终镜像 |
+| 合并 `RUN` 并清理包缓存 | 少一层，`apt` 缓存不残留 |
+| `.dockerignore` | 缩小构建上下文 |
+
+Debian 系基础镜像里装包时写成一条：
 
 ```dockerfile
-# 使用 Node.js 24 (LTS) 作为基础镜像
-FROM node:24
-
-# 设置工作目录
-WORKDIR /app
-
-# 复制 package.json 和 package-lock.json 文件到工作目录
-COPY package*.json ./
-
-# 安装应用程序依赖
-RUN npm install
-
-# 复制应用程序代码到工作目录
-COPY . .
-
-# 暴露应用程序端口
-EXPOSE 3000
-
-# 定义启动命令
-CMD ["node", "app.js"]
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 ```
 
-### 5.3  构建镜像
+分开写 `apt-get update` 和 `apt-get install` 会让缓存层留下过期的包索引。
 
-在终端中，进入 Dockerfile 所在目录，执行以下命令构建镜像：
+查看每层占多大用 `docker history <image>`；要进一步定位具体文件，用 `dive` 这类工具。
 
-```bash
-docker build -t my-node-app .
-```
+## 七、排查对照
 
-`-t` 参数用于指定镜像名称，这里命名为 `my-node-app`。 `.`  表示 Dockerfile 所在的当前目录。
+| 现象 | 常见原因 |
+|---|---|
+| 容器启动即退出 | 主进程报错，看 `docker logs`；`-d` 会吞掉前台输出 |
+| `exec` 报容器未运行 | 容器已退出，`docker ps -a` 确认状态 |
+| 端口访问不通 | 没写 `-p`，或应用绑在容器内 `127.0.0.1` |
+| 构建时 `COPY` 找不到文件 | 被 `.dockerignore` 排除，或路径相对构建上下文 |
+| 磁盘持续增长 | 悬空镜像和旧容器堆积，`docker system df` 看明细 |
+| 中文乱码 / 时区错 | 精简镜像缺 `tzdata` 和 locale，需自行安装并设 `TZ` |
+| 停止容器要等 10 秒 | 应用不处理 `SIGTERM`，加 `--init` 或补信号处理 |
 
-### 5.4  运行容器
+## 参考
 
-镜像构建完成后，执行以下命令运行容器：
-
-```bash
-docker run -d -p 8080:3000 my-node-app
-```
-
-*   `-d` 参数表示以后台模式运行容器。
-*   `-p 8080:3000`  将主机的 8080 端口映射到容器的 3000 端口，这样就可以通过访问主机的 8080 端口来访问应用。
-
-### 5.5  访问应用
-
-打开浏览器，访问 `http://localhost:8080`，你将看到 “Hello from Docker!” 的页面，恭喜你，成功使用 Docker 运行了你的第一个 Node.js 应用！
-
-## 6.  Docker: 云原生时代的基石
-
-Docker 不仅仅是一个工具，更是一种理念，它推动了微服务架构和云原生应用的发展。Docker 容器技术的便捷性、高效性和可移植性，使其成为构建现代化应用的重要基石。
-
-### 6.1  Docker 与微服务：
-
-Docker 天然适合微服务架构，可以将每个微服务打包成独立的容器，实现服务隔离、独立部署和扩展。
-
-### 6.2  Docker 与云原生：
-
-Docker 是云原生应用的重要基础设施，主流云平台都提供了对 Docker 的支持，方便用户快速部署和管理应用。
-
-## 7.  总结：开启你的 Docker 之旅
-
-Docker 为软件开发带来了革命性的变化，它简化了应用部署，提升了开发效率，是每个开发者都应该掌握的利器。本文只是 Docker 的入门指南，更多精彩内容等待你去探索！
-
-## 8.  参考资源
-
-* Docker 官方文档: [https://docs.docker.com/](https://docs.docker.com/)
-* Docker Hub: [https://hub.docker.com/](https://hub.docker.com/)
+- [Docker 构建最佳实践](https://docs.docker.com/build/building/best-practices/)
+- [Dockerfile 参考](https://docs.docker.com/reference/dockerfile/)
+- [overlay2 存储驱动](https://docs.docker.com/engine/storage/drivers/overlay2/)
+- [docker container run 命令参考](https://docs.docker.com/reference/cli/docker/container/run/)

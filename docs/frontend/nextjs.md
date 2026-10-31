@@ -2,8 +2,9 @@
 isTimeLine: true
 sticky: 1
 title: Next.js 全栈应用入门
-description: 这是一篇针对初学者的 Next.js 入门指南，带你从零开始构建一个完整的全栈应用，涵盖路由、数据获取、样式设计、API 路由等核心概念。
+description: 用 App Router 搭一个 Dashboard：目录约定、布局嵌套、Tailwind v4 接入、Server Component 的数据获取与缓存、Route Handler 写接口，以及 error、not-found、loading 三类边界文件。
 date: 2024-05-13
+updated: 2026-10-31
 author: 烟霞不系舟
 lang: zh-CN
 categories:
@@ -17,7 +18,7 @@ tags:
 head:
 - - meta
   - name: keywords
-    content: Next.js, 入门, 教程, 全栈, React, 框架
+    content: Next.js, App Router, Server Component, Route Handler, Tailwind CSS v4, 数据获取, 缓存
 - - meta
   - property: og:type
     content: article
@@ -26,70 +27,122 @@ head:
     content: Next.js - 从零开始构建全栈应用
 - - meta
   - property: og:description
-    content: 这是一篇针对初学者的 Next.js 入门指南，带你从零开始构建一个完整的全栈应用，涵盖路由、数据获取、样式设计、API 路由等核心概念。
+    content: 用 App Router 搭一个 Dashboard：目录约定、布局嵌套、Tailwind v4、Server Component 数据获取、Route Handler 与三类边界文件。
 ---
 
-# Next.js Dashboard 入门
+# Next.js 全栈应用入门
 
-本文将总结如何使用 Next.js 构建一个简单的 Dashboard 应用。我们将使用 Next.js 16 版本（当前稳定版），并结合 Tailwind CSS 进行样式设计，创建一个美观且功能完善的管理后台界面。
+照抄旧教程的 `getServerSideProps` 到 `app/` 目录下会直接报错，`pages/api` 里的接口在 App Router 项目里也不会被加载——这是从 Pages Router 切过来最先撞上的两件事。
 
-## 1. 项目初始化
+下面按一个 Dashboard 项目的搭建顺序走：初始化和目录约定、路由与布局、样式与资源、数据获取与缓存、写接口、错误边界，每节末尾标出与 Pages Router 写法的对应关系。
 
-首先，使用以下命令创建一个新的 Next.js 项目。我们使用了 `create-next-app` 命令，并指定了官方提供的 Dashboard 示例模板，以便快速搭建项目基础结构：
+## 先分清两套路由
+
+| 对比项 | App Router（`app/`） | Pages Router（`pages/`） |
+|---|---|---|
+| 页面文件 | `page.tsx` | `index.tsx` / `[id].tsx` |
+| 布局 | `layout.tsx`，可嵌套 | `_app.tsx`，全局唯一 |
+| 数据获取 | 组件内 `async` + `fetch` | `getStaticProps` / `getServerSideProps` |
+| 接口 | `route.ts` 导出 `GET`/`POST` | `api/*.js` 导出默认 handler |
+
+两套可以共存，但新项目只建 `app/`。`app/` 与 `pages/` 下同名路径同时存在会冲突，迁移完成后再删掉 `pages/`。
+
+## 一、初始化
+
+Next.js 16 要求 Node 20.9 及以上，先确认版本：
 
 ```bash
-npx create-next-app@latest nextjs-dashboard --use-npm 
---example "https://github.com/vercel/next-learn/tree/main/dashboard/starter-example"
+node -v
+npx create-next-app@latest nextjs-dashboard --use-npm \
+  --example "https://github.com/vercel/next-learn/tree/main/dashboard/starter-example"
 ```
 
-## 2. 目录结构
+注意命令是一行，换行要加反斜杠，直接折行会被 shell 拆成两条命令。
 
-创建后的项目目录结构如下：
+`create-next-app` 会问是否使用 TypeScript、Tailwind、`src/` 目录、App Router 和 Turbopack。这个 starter 已经预置了 TypeScript 和 App Router，交互时选默认即可。
+
+## 二、目录结构
 
 ```
 ├── app
+│   ├── dashboard
+│   │   ├── layout.tsx
+│   │   └── page.tsx
 │   ├── lib
-│   └── ui
+│   ├── ui
+│   └── layout.tsx
 ├── public
 ├── scripts
-└── next.config.js
+├── next.config.ts
+└── postcss.config.mjs
 ```
 
-详细说明：
+- `app/`：路由段与组件。`lib/` 放数据查询和工具函数，`ui/` 放展示组件，这两个目录不加路由
+- `public/`：静态资源，按根路径引用，`/hero.png` 对应 `public/hero.png`
+- `scripts/`：数据初始化脚本，通过 `package.json` 的 `seed` 命令执行
+- `next.config.ts`：配置文件。Next.js 15 起脚手架默认生成 TS 版本，`next.config.js` 仍然兼容
 
-- `app` 目录：存放 Next.js 应用程序中的核心逻辑和组件。
-    - `lib` 目录：存放共享代码，如工具函数、自定义 Hooks 等，方便代码复用。
-    - `ui` 目录：存放 UI 组件，如按钮、表单、卡片等，用于构建用户界面。
-- `public` 目录：存放静态资源，如图片、字体等，可以直接在代码中引用。
-- `scripts` 目录：存放脚本，如构建脚本、部署脚本等，用于自动化项目构建和部署流程。
-- `next.config.js` 文件：Next.js 的配置文件，用于配置项目的各种选项，如路由、构建、环境变量等。
+**只有 `page.tsx` 和 `route.ts` 会生成可访问的路由**，其余文件（组件、工具函数、`layout.tsx`）放在 `app/` 里不会暴露成 URL。
 
-## 3. 路由
+## 三、路由与布局
 
-Next.js 使用文件系统路由，通过文件夹和文件名的约定来定义路由规则，清晰易懂。每个文件夹代表一个映射到 URL 段的路由段，例如 `/dashboard`、`/settings` 等。
+文件夹名即路径段，`app/dashboard/invoices/page.tsx` 映射到 `/dashboard/invoices`。`layout.tsx` 包裹同段及以下所有子路由，且**在导航时保持挂载、不重新渲染**，状态和滚动位置都能保留。
 
-使用 `layout.tsx` 和 `page.tsx` 文件为每个路由创建单独的 UI 布局和内容：
+```tsx
+// app/dashboard/layout.tsx
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-screen flex-col md:flex-row">
+      <div className="w-full flex-none md:w-64">
+        <SideNav />
+      </div>
+      <div className="grow p-6 md:p-12">{children}</div>
+    </div>
+  );
+}
+```
 
-- `page.tsx` 是一个特殊的 Next.js 文件，用于导出 React 组件，路由需要它才能访问。它定义了该路由对应页面的主要内容和逻辑。
-- `layout.tsx` 用于定义页面的布局，例如页眉、页脚、侧边栏等，包裹在 `page.tsx` 外层，提供页面结构。
+几个约定：
 
-Next.js 还支持动态路由、嵌套路由等高级路由功能，可以满足各种复杂的应用场景。
+- 根布局 `app/layout.tsx` 必须包含 `<html>` 和 `<body>`，且只能有一个
+- 布局之间是嵌套关系，子布局渲染在父布局的 `children` 位置
+- 加括号的目录 `(overview)` 是路由组，不影响 URL，只用来共享布局
 
-## 4. CSS 样式 - Tailwind CSS
+### 3.1 动态段与 params
 
-我们使用 Tailwind CSS 来快速设计页面样式。Tailwind CSS 是一个 utility-first 的 CSS 框架，提供了大量的预定义 CSS 类，可以像搭积木一样组合使用，快速构建出各种样式。
+`app/dashboard/invoices/[id]/page.tsx` 匹配 `/dashboard/invoices/123`。**Next.js 15 起 `params` 和 `searchParams` 是 Promise，必须 `await`**，直接解构拿到的是 Promise 而不是值：
 
-在项目的配置文件中，我们已经配置好了 Tailwind CSS，并使用 `@tailwind` 指令引入了基础样式、组件样式和工具类：
+```tsx
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  // ...
+}
+```
+
+捕获全部后续段用 `[...slug]`，可选段用 `[[...slug]]`。
+
+## 四、样式：Tailwind CSS
+
+脚手架现在装的是 Tailwind v4，**不再有 `@tailwind base/components/utilities` 三行指令**，也默认不生成 `tailwind.config.js`，改为在 CSS 里一行导入：
 
 ```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* app/ui/global.css */
+@import "tailwindcss";
+
+@theme {
+  --color-primary: oklch(58% 0.2 255);
+}
 ```
 
-在项目的根布局组件 `app/layout.tsx` 中，我们引入了全局样式文件 `global.css`，该文件包含了 Tailwind CSS 的基本配置：
+`postcss.config.mjs` 里挂 `@tailwindcss/postcss`，这就是全部接入工作。若沿用 v3 的写法（`@tailwind` 指令 + `content` 配置），在 v4 下样式不会生成。
 
-```javascript
+根布局引入全局样式：
+
+```tsx
 import '@/app/ui/global.css';
 
 export default function RootLayout({
@@ -98,113 +151,80 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="zh-CN">
       <body>{children}</body>
     </html>
   );
 }
 ```
 
-现在，我们可以在任何组件中使用 Tailwind CSS 提供的类名来设置样式，例如：
+之后在组件里直接组合类名，`<h1 className="text-blue-500">` 即可。条件类名建议用 `clsx` 或模板字符串拼接，不要手写字符串相加。
 
-```javascript
-<h1 className="text-blue-500">I'm blue!</h1>
-```
+## 五、字体与图片
 
-## 5. 字体和图片
+`next/font` 在构建时下载字体文件并自托管，去掉对外部域名的请求，同时自动生成 `size-adjust` 减少布局偏移：
 
-我们使用 `next/font` 来自动优化字体加载，并使用 Google Fonts 提供的 Inter 字体作为示例：
-
-```typescript
-import { Inter } from 'next/font/google';
+```tsx
+// app/ui/fonts.ts
+import { Inter, Lusitana } from 'next/font/google';
 
 export const inter = Inter({ subsets: ['latin'] });
+export const lusitana = Lusitana({ weight: ['400', '700'], subsets: ['latin'] });
 ```
 
-然后，在根布局组件中应用该字体：
+在根布局应用：
 
-```javascript
-import '@/app/ui/global.css';
+```tsx
 import { inter } from '@/app/ui/fonts';
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <html lang="en">
-      <body className={`${inter.className} antialiased`}>{children}</body>
-    </html>
-  );
-}
+<body className={`${inter.className} antialiased`}>{children}</body>
 ```
 
-我们使用 `next/image` 组件来优化图片加载和显示，它可以根据设备分辨率和屏幕尺寸自动加载最佳尺寸的图片，并支持懒加载、占位符等功能。
+中文字体通常体积过大，`next/font/google` 下载慢且子集不全，中文项目更实用的做法是用 `next/font/local` 指向 `public/fonts` 下的 `woff2` 文件。
 
-```javascript
+`next/image` 提供尺寸优化、懒加载和格式转换：
+
+```tsx
 import Image from 'next/image';
 
-export default function Page() {
-  return (
-    <div>
-      <Image
-        src="/hero-desktop.png"
-        width={1000}
-        height={760}
-        alt="Screenshots of the dashboard project showing desktop version"
-      />
-    </div>
-  );
-}
+<Image
+  src="/hero-desktop.png"
+  width={1000}
+  height={760}
+  alt="Dashboard 桌面版截图"
+  className="hidden md:block"
+/>
 ```
 
-## 6. 页面导航
+必须给 `width`/`height`（或用 `fill` 配合定位父元素），否则会报缺失尺寸。远程图片要在 `next.config.ts` 的 `images.remotePatterns` 里声明域名，未声明的域名会直接报错而不是静默降级。
 
-在 Next.js 中，我们使用 `<Link />` 组件在应用程序中的页面之间进行链接。`<Link />` 组件可以预加载目标页面的资源，提供更快的页面跳转体验。
+## 六、导航与流式渲染
 
-```javascript
+`<Link>` 在视口内会预取目标路由的代码和 RSC 负载，跳转时无需整页刷新：
+
+```tsx
 import Link from 'next/link';
 
-export default function NavLinks() {
-  return (
-    <>
-      {/* 假设你有一个名为 links 的数组，包含链接信息 */}
-      {links.map((link) => (
-          <Link
-            key={link.name}
-            href={link.href}
-            className="flex h-[48px] grow items-center justify-center gap-2 rounded-md bg-gray-50 p-3 text-sm font-medium hover:bg-sky-100 hover:text-blue-600 md:flex-none md:justify-start md:p-2 md:px-3"
-          >
-            {/* 假设你有一个 LinkIcon 组件 */}
-            <LinkIcon className="w-6" />
-            <p className="hidden md:block">{link.name}</p>
-          </Link>
-        ))}
-    </>
-  );
-}
+{links.map((link) => (
+  <Link key={link.name} href={link.href}>{link.name}</Link>
+))}
 ```
 
-## 7. 流式传输
+高亮当前项要在客户端组件里用 `usePathname()` 比较，`Link` 本身不提供激活态样式。
 
-流式传输可以将页面内容分块加载，提高页面加载速度和用户体验。在 Next.js 中，有两种实现流式传输的方式：
+### 6.1 分块加载
 
-- 在页面级别，使用 `loading.tsx` 文件定义加载状态的 UI，Next.js 会在页面加载过程中显示该 UI。
-- 对于特定组件，使用 `<Suspense>` 组件包裹需要异步加载的组件，并使用 `fallback` 属性指定加载状态的 UI。
+慢数据不应该阻塞整个页面。两种做法：
 
-`loading.tsx` 示例
+| 方式 | 适用 |
+|---|---|
+| `loading.tsx` | 整个路由段的首次加载骨架 |
+| `<Suspense fallback>` | 页面内某个异步组件的局部骨架 |
 
-```javascript
-export default function Loading() {
-  return <div>Loading...</div>;
-}
-```
+```tsx
+import { Suspense } from 'react';
 
-`<Suspense>` 示例
-
-```javascript
-<div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-4 lg:grid-cols-8">
+<div className="grid gap-6 md:grid-cols-4">
   <Suspense fallback={<RevenueChartSkeleton />}>
     <RevenueChart />
   </Suspense>
@@ -212,60 +232,102 @@ export default function Loading() {
 </div>
 ```
 
-## 8. 搜索和分页
+`<Suspense>` 的边界内组件独立流式输出，其余部分先到先渲染。`loading.tsx` 本质上是给整段包了一层 Suspense，两者可以叠加使用。
 
-搜索和分页是 Dashboard 应用中常见的交互功能，Next.js 提供了灵活的 API 和组件来实现这些功能。
+## 七、搜索与分页
 
-- `<Search />` 组件允许用户输入关键词进行搜索，并可以通过事件监听获取用户输入。
-- `<Pagination />` 组件用于展示分页导航，允许用户浏览不同页面的数据。
+App Router 里搜索和分页的状态放在 URL 上，用 `searchParams` 读取，服务端渲染结果，链接可直接分享：
 
-示例
-
-```javascript
-import Pagination from '@/app/ui/invoices/pagination';
-import Search from '@/app/ui/search';
-import Table from '@/app/ui/invoices/table';
-import { CreateInvoice } from '@/app/ui/invoices/buttons';
-import { lusitana } from '@/app/ui/fonts';
-import { InvoicesTableSkeleton } from '@/app/ui/skeletons';
-import { Suspense } from 'react';
-
-export default async function Page() {
-  // ... 获取数据逻辑 ...
-
-  return (
-    <div className="w-full">
-      <div className="flex w-full items-center justify-between">
-        <h1 className={`${lusitana.className} text-2xl`}>Invoices</h1>
-      </div>
-      <div className="mt-4 flex items-center justify-between gap-2 md:mt-8">
-        <Search placeholder="Search invoices..." />
-        <CreateInvoice />
-      </div>
-      <Suspense key={query + currentPage} fallback={<InvoicesTableSkeleton />}>
-        <Table query={query} currentPage={currentPage} />
-      </Suspense>
-      <div className="mt-5 flex w-full justify-center">
-        <Pagination totalPages={totalPages} />
-      </div>
-    </div>
-  );
+```tsx
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ query?: string; page?: string }>;
+}) {
+  const { query = '', page = '1' } = await searchParams;
+  const currentPage = Number(page);
+  // 用 query 和 currentPage 查数据
 }
 ```
 
-## 9. 错误处理
+- 输入框用 `useSearchParams()` + `useRouter().replace()` 更新 URL，加 300ms 防抖，避免每个按键都发一次请求
+- 翻页链接里把 `page` 合并进 query 对象再传给 `href`，其余查询参数原样带过去
+- 数据查询函数要复用，翻页和搜索走同一条路径，分页总数单独查一次 `COUNT`
 
-错误处理对于提高应用的健壮性和用户体验至关重要。Next.js 提供了两种错误处理机制：
+`<Suspense key={query + currentPage}>` 里的 `key` 必须随查询条件变化，否则切换时会复用旧组件的状态。
 
-- `error.tsx` 文件：用于定义路由段的 UI 边界，可以捕获路由组件中抛出的错误，并向用户显示友好的错误信息。
-- `ErrorBoundary` 组件：用于捕获 React 组件树中抛出的错误，可以防止整个应用崩溃，并向用户显示友好的错误信息。
+## 八、数据获取
 
-`error.tsx` 示例
+Server Component 直接写 `async`，在服务端执行，`fetch` 和数据库查询都不会进客户端包：
 
-```javascript
+```tsx
+export default async function Page() {
+  const invoices = await sql`SELECT * FROM invoices LIMIT 10`;
+  return <Table invoices={invoices} />;
+}
+```
+
+### 8.1 缓存语义
+
+Next.js 15 起 `fetch` **默认不缓存**，等价于 `cache: 'no-store'`（v14 及以前默认强缓存，这是升级后行为变化最大的一处）：
+
+| 需求 | 写法 |
+|---|---|
+| 每次请求取新数据 | `fetch(url)` 或显式 `cache: 'no-store'` |
+| 定时重新验证 | `fetch(url, { next: { revalidate: 60 } })` |
+| 构建时取一次 | `export const dynamic = 'force-static'` |
+
+写入后要让相关页面失效，调用 `revalidatePath('/dashboard/invoices')` 或 `revalidateTag('invoices')`，前者按路径，后者给 `fetch` 打 `next: { tags: ['invoices'] }` 后按标签批量失效。
+
+### 8.2 与 Pages Router 的对应
+
+| Pages Router | App Router |
+|---|---|
+| `getStaticProps` | 组件内 `fetch` + `revalidate` |
+| `getServerSideProps` | 组件内 `fetch`，或用 `cookies()`/`headers()` 自动转为动态渲染 |
+| `getStaticPaths` | `generateStaticParams()` |
+| 客户端 `useEffect` 拉数据 | 优先改成服务端取，需要交互时再用 `useSWR`/`useQuery` |
+
+`cookies()`、`headers()` 在 Next.js 15 起同样是异步的，需要 `await`。调用它们会让所在路由退出静态渲染，这是把整个页面变成动态的常见意外原因。
+
+### 8.3 表单与写入
+
+增删改用 Server Actions：`'use server'` 标记的函数可以直接作为 `<form action={...}>` 的处理器，在服务端执行并在完成后触发 `revalidatePath`。它取代了「建一个 API 路由 + 客户端 `fetch`」的样板代码，但只适用于同源表单提交，外部调用方仍要走 Route Handler。
+
+## 九、Route Handler
+
+接口放在 `app/api/<path>/route.ts`，按 HTTP 方法导出同名函数：
+
+```ts
+// app/api/login/route.ts
+import { NextResponse } from 'next/server';
+
+export async function POST(request: Request) {
+  const { username, password } = await request.json();
+
+  if (username === 'admin' && password === 'secret') {
+    return NextResponse.json({ success: true });
+  }
+  return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+}
+```
+
+与 `pages/api` 的差异：
+
+- 文件必须叫 `route.ts`，导出的是具名函数而非默认 handler，参数只有 `request`，响应通过返回值而非 `res.status().json()`
+- 默认不缓存，`GET` 需要缓存时加 `export const dynamic = 'force-static'`
+- 路由段可以嵌套，`app/api/invoices/[id]/route.ts` 里 `await params` 拿 id
+
+## 十、错误与 404
+
+| 文件 | 作用范围 |
+|---|---|
+| `error.tsx` | 当前段及子段，必须 `'use client'` |
+| `global-error.tsx` | 根布局自身的错误，需自带 `<html>`/`<body>` |
+| `not-found.tsx` | `notFound()` 触发或路径不匹配 |
+
+```tsx
 'use client';
-
-import { useEffect } from 'react';
 
 export default function Error({
   error,
@@ -274,125 +336,46 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    // Optionally log the error to an error reporting service
-    console.error(error);
-  }, [error]);
-
   return (
-    <main className="flex h-full flex-col items-center justify-center">
-      <h2 className="text-center">Something went wrong!</h2>
-      <button
-        className="mt-4 rounded-md bg-blue-500 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-400"
-        onClick={
-          // Attempt to recover by trying to re-render the invoices route
-          () => reset()
-        }
-      >
-        Try again
-      </button>
+    <main>
+      <h2>出错了</h2>
+      <button onClick={() => reset()}>重试</button>
     </main>
   );
 }
 ```
 
-404 示例
+`error.tsx` 只能捕获其**子段**渲染时抛出的错误，同级的 `layout.tsx` 出错要靠上一层或 `global-error.tsx`。`digest` 是服务端错误的哈希，生产环境不会把堆栈发给客户端，排查要拿这个值去对服务端日志。数据不存在时用 `notFound()` 主动跳 404，比返回空列表更清晰。
 
-```javascript
-import Link from 'next/link';
-import { FaceFrownIcon } from '@heroicons/react/24/outline';
+## 十一、元数据
 
-export default function NotFound() {
-  return (
-    <main className="flex h-full flex-col items-center justify-center gap-2">
-      <FaceFrownIcon className="w-10 text-gray-400" />
-      <h2 className="text-xl font-semibold">404 Not Found</h2>
-      <p>Could not find the requested invoice.</p>
-      <Link
-        href="/dashboard/invoices"
-        className="mt-4 rounded-md bg-blue-500 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-400"
-      >
-        Go Back
-      </Link>
-    </main>
-  );
-}
-```
+静态元数据导出 `metadata` 对象，`keywords` 是**字符串数组**而非逗号分隔的字符串：
 
-## 10. 添加元数据
-
-元数据对于 SEO 非常重要，可以帮助搜索引擎理解页面内容，提高页面排名。在 Next.js 中，可以使用 `metadata` 对象来定义页面的元数据，例如标题、描述、关键词等。
-
-```javascript
-import { Metadata } from 'next';
+```tsx
+import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Invoices | Acme Dashboard',
-  description: 'Manage your invoices and track your payments with Acme Dashboard.',
-  keywords: 'acme, dashboard, invoices, payments, billing',
+  description: '管理发票与收款状态。',
+  keywords: ['acme', 'dashboard', 'invoices'],
 };
 ```
 
-## 11. 数据获取
+需要按数据动态生成时改用 `generateMetadata`，它和页面一样可以是 `async`：
 
-Next.js 提供了两种方式从外部获取数据，以满足不同的应用场景：
-
-- **`getStaticProps`**: 用于在构建时获取数据，适用于静态内容。构建时数据获取可以提高页面加载速度，有利于 SEO，因为搜索引擎爬虫可以更快地抓取页面内容。
-
-示例：
-
-```javascript
-// pages/posts/[id].js
-export async function getStaticProps({ params }) {
-  const res = await fetch(`https://.../posts/${params.id}`);
-  const post = await res.json();
-
-  return { 
-    props: { post } 
-  };
+```tsx
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const invoice = await getInvoice(id);
+  return { title: `${invoice.name} | Invoices` };
 }
 ```
 
-- **`getServerSideProps`**: 用于在每次请求时获取数据，适用于动态内容。服务端渲染可以确保用户始终看到最新的数据，例如用户特定的信息或实时更新的内容。
+`metadata` 与 `generateMetadata` 在同一个文件里只能二选一。子段未声明时会继承父段的字段，`title` 可以写成 `{ template: '%s | Acme', default: 'Acme' }` 统一加后缀。
 
-示例：
+## 参考
 
-```javascript
-// pages/dashboard.js
-export async function getServerSideProps(context) {
-  const user = await getUser(context.req.headers.cookie); // 获取用户信息
-
-  return {
-    props: { user },
-  };
-}
-```
-
-## 12. API 路由
-
-Next.js 支持创建 API 路由，用于处理 API 请求，例如获取数据、提交表单、身份验证等。API 路由文件位于 `pages/api` 目录下，每个文件对应一个 API 端点。
-
-示例：
-
-```javascript
-// pages/api/login.js
-export default async function handler(req, res) {
-  // 处理登录请求
-  const { username, password } = req.body;
-
-  if (username === 'admin' && password === 'password') {
-    res.status(200).json({ success: true });
-  } else {
-    res.status(401).json({ error: 'Invalid credentials' });
-  }
-}
-```
-
-## 13. 总结
-
-Next.js 是一个功能强大的 React 框架，它提供了许多内置功能和 API，例如路由、数据获取、API 路由、错误处理、SEO 优化等，可以帮助我们快速构建现代化的 Web 应用。
-
-## 14. 参考
-
-- [Next.js 官方文档](https://nextjs.org/docs)
-- [Tailwind CSS 官方文档](https://tailwindcss.com/docs/installation)
+- [Next.js 官方文档：App Router](https://nextjs.org/docs/app)
+- [Next.js 数据获取与缓存](https://nextjs.org/docs/app/getting-started/fetching-data)
+- [Next.js Route Handlers](https://nextjs.org/docs/app/api-reference/file-conventions/route)
+- [Tailwind CSS v4 升级指南](https://tailwindcss.com/docs/upgrade-guide)

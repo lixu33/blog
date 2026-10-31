@@ -1,8 +1,9 @@
 ---
 isTimeLine: true
-title: Redis 原理深度解析
-description: 深入解析 Redis 的核心技术特性、高性能原理与高可用方案，涵盖单线程模型、IO 多路复用、持久化、主从复制、哨兵与集群等关键机制。
+title: Redis 原理与高可用方案
+description: Redis 的命令执行模型、SDS 与 listpack 编码、RDB/AOF 持久化，以及主从、Sentinel、Cluster 三种高可用方案的选主条件与数据丢失边界。含 6.0 多线程 I/O、7.0 ziplist 退役与 AOF 多文件格式的变化。
 date: 2024-10-14
+updated: 2026-10-31
 tags:
 - Redis
 - 缓存
@@ -14,231 +15,218 @@ categories:
 head:
 - - meta
   - name: keywords
-    content: Redis,内存数据库,高性能,高可用性,SDS,压缩列表,集群
+    content: Redis,内存数据库,高性能,高可用性,SDS,listpack,压缩列表,哈希槽,Cluster,Sentinel
 ---
 
-# Redis原理深度解析：特性、高性能和高可用性
+# Redis 原理与高可用方案
 
-Redis作为一款高性能的key-value内存数据库,在互联网架构中应用广泛。本文将深入探讨Redis的核心原理,包括其独特的技术特性、高性能的实现机制,以及保障高可用性的方案。
+缓存命中率掉到 90% 以下、Sentinel 切换后客户端还在连旧主、Cluster 扩容后多 key 命令报 `CROSSSLOT`——这三类问题的根都在执行模型、复制方式和分片规则上，不在业务代码。
 
-## 1. Redis的核心技术特性
+下面按「命令怎么被执行 → 数据用什么编码 → 怎么落盘和复制 → 三种高可用方案的条件与代价」的顺序讲，每节末尾给出对应的配置项。
 
-Redis具有许多独特的技术特性,这些特性是它区别于其他数据库系统的关键所在:
+## 先记住三条
 
-### 1.1 内存存储
+1. **单线程指的是命令执行**。网络读写从 6.0 起可以多线程，但一条命令从解析到执行完仍然独占主线程，慢命令会阻塞整个实例
+2. **7.0 是分水岭**：`ziplist` 被 `listpack` 取代，AOF 改成多文件（base + incr + manifest），集群槽位相关的命令没有变化
+3. **Cluster 只有 16384 个槽，复制是异步的**，主节点确认写入即可返回，切换瞬间的写入无法保证不丢
 
-Redis将所有数据存储在内存中,这是它实现高速读写的基础。与传统的磁盘存储相比,内存访问速度可以快几个数量级。
+## 一、执行模型
 
-### 1.2 单线程模型
+### 1.1 事件循环与 I/O 多路复用
 
-Redis使用单线程模型来处理客户端请求,这种设计避免了多线程编程中的复杂性和开销,同时也消除了线程切换的成本。
-
-### 1.3 I/O多路复用
-
-尽管Redis是单线程的,但它使用I/O多路复用技术(如epoll)来同时处理多个连接,这使得Redis能够高效地处理并发请求。
-
-### 1.4 丰富的数据结构
-
-Redis支持字符串、哈希、列表、集合、有序集合等多种数据结构,这些数据结构都是由底层的基础数据结构如简单动态字符串(SDS)、双向链表、压缩列表等实现的。
-
-```c
-typedef struct redisObject {
-    unsigned type:4;
-    unsigned encoding:4;
-    unsigned lru:LRU_BITS;
-    int refcount;
-    void *ptr;
-} robj;
-```
-
-这是Redis对象的结构定义,其中type表示数据类型,encoding表示底层编码方式,ptr指向实际的数据结构。
-
-### 1.5 持久化机制
-
-Redis提供了RDB和AOF两种持久化机制,允许将内存中的数据保存到磁盘,以防止数据丢失。
-
-## 2. Redis高性能的原理
-
-Redis之所以能够实现如此高的性能，主要基于以下几个方面：
-
-### 2.1 内存操作
-
-所有操作都在内存中进行，避免了磁盘I/O的瓶颈。
-
-### 2.2 高效的数据结构
-
-Redis针对不同场景选择了最优的数据结构，如简单动态字符串（SDS）、压缩列表（ziplist）、跳跃表（skiplist）等。
-
-#### 2.2.1 简单动态字符串（SDS）
-
-SDS是Redis自己实现的字符串数据结构，相比C语言原生的字符串，SDS具有更多优势：
-
-```c
-struct sdshdr {
-    int len;        // 字符串长度
-    int free;       // 未使用的字节数
-    char buf[];     // 字符数组，用于保存字符串
-};
-```
-
-SDS的优势：
-1. 常数复杂度获取字符串长度
-2. 避免缓冲区溢出
-3. 减少修改字符串时带来的内存重分配次数
-4. 二进制安全
-5. 兼容部分C字符串函数
-
-这些特性使得SDS在Redis中的字符串操作非常高效。
-
-#### 2.2.2 压缩列表（Ziplist）
-
-压缩列表是Redis为了节约内存而开发的顺序型数据结构，可以包含多个元素，每个元素可以是一个字节数组或一个整数。
-
-压缩列表的结构如下：
-
-```
-<zlbytes><zltail><zllen><entry><entry>...<entry><zlend>
-```
-
-- zlbytes：4字节，表示整个压缩列表占用的字节数
-- zltail：4字节，表示压缩列表表尾节点距离压缩列表起始地址有多少字节
-- zllen：2字节，表示压缩列表包含的节点数量
-- entry：列表节点
-- zlend：1字节，特殊值0xFF，用于标记压缩列表的末端
-
-压缩列表的高效原理：
-1. 节省内存：每个节点只使用必要的内存空间
-2. 顺序存储：支持快速的顺序遍历
-3. 灵活编码：根据实际数据，采用不同的编码方式以节省空间
-
-### 2.3 pipeline机制
-
-Redis支持pipeline，允许客户端一次性发送多个命令，减少了网络往返的延迟。
-
-### 2.4 事件驱动模型
-
-Redis使用事件驱动模型，在单线程中高效处理多个客户端连接。
+Redis 用一个事件循环同时监听所有客户端连接（Linux 上是 `epoll`），把「可读」「可写」「定时任务」都转成事件回调。这样单个线程就能扛住上万连接，省掉了每连接一线程的栈和切换开销。
 
 ```c
 int main(int argc, char **argv) {
-    ...
     initServer();
-    aeMain(server.el);
+    aeMain(server.el);          // 事件循环，内含 aeProcessEvents
     aeDeleteEventLoop(server.el);
     return 0;
 }
 ```
 
-这是Redis主函数的简化版,其中aeMain函数启动了事件循环,处理所有的I/O事件和定时事件。
+`aeMain` 里的顺序是：处理到期的时间事件 → 阻塞等待文件事件 → 处理文件事件 → 处理 `beforeSleep`（把 AOF 缓冲区刷盘、处理集群消息等）。
 
-## 3. Redis的高可用性方案
+### 1.2 6.0 之后的多线程 I/O
 
-为了保证Redis的高可用性,主要有以下几种方案:
+`io-threads` 默认是 1（即不开）。设为 4 时，命令的读取、协议解析和回复写回分散到多个线程，**命令执行仍然是单线程**，所以不需要考虑数据结构并发安全。
 
-### 3.1 主从复制
+调大的收益只在网络 I/O 成为瓶颈时出现（通常单实例跑到 15 万 QPS 以上、CPU 打满但 `used_cpu_sys` 占比高）。纯内存操作密集的场景调大反而增加线程同步开销：
 
-Redis支持主从复制,从节点可以复制主节点的数据,提供了数据的冗余备份。
-
-```
-+-------------+
-|   Master    |
-+-------------+
-       |
-       | replication
-       |
-+-------------+  +-------------+
-|   Slave 1   |  |   Slave 2   |
-+-------------+  +-------------+
+```properties
+io-threads 4
+io-threads-do-reads yes
 ```
 
-### 3.2 哨兵(Sentinel)机制
+### 1.3 哪些操作会阻塞主线程
 
-Sentinel系统用于监控和管理Redis主从集群,它可以自动进行故障检测和主从切换。
+| 操作 | 阻塞原因 |
+|---|---|
+| `KEYS *`、`HGETALL` 大 hash | 一次性遍历全部元素，O(N) |
+| `DEL` 大 key | 释放内存的耗时在调用方线程完成 |
+| `FLUSHALL`、`SAVE` | 全量遍历 / 同步落盘 |
+| Lua 脚本执行超过 `lua-time-limit` | 脚本不可中断，只能 `SCRIPT KILL`（未写过数据时） |
 
-```
-         +-------------+
-         |  Sentinel 1 |
-         +-------------+
-               |
-     +---------+---------+
-     |                   |
-+-------------+   +-------------+
-|   Master    |   |   Slave     |
-+-------------+   +-------------+
-     |                   |
-     +---------+---------+
-               |
-         +-------------+
-         |  Sentinel 2 |
-         +-------------+
-```
+大 key 的删除改用 `UNLINK`（后台线程回收），遍历改用 `SCAN`（游标式，每次只返回少量）。`used_memory > maxmemory` 时的淘汰也在主线程做，样本数由 `maxmemory-samples` 控制。
 
-### 3.3 集群(Cluster)模式
+## 二、对象与编码
 
-Redis Cluster通过分片(sharding)将数据分布到多个节点上，每个节点存储一部分数据，从而支持更大的数据量和更高的并发。
-
-#### 3.3.1 集群架构
-
-Redis集群通常由多个节点组成，每个节点都是一个Redis实例。集群中的节点分为主节点和从节点。
-
-```
-       +--------+    +--------+    +--------+
-       | Master |    | Master |    | Master |
-       |   A    |    |   B    |    |   C    |
-       +--------+    +--------+    +--------+
-           |             |             |
-           |             |             |
-       +--------+    +--------+    +--------+
-       | Slave  |    | Slave  |    | Slave  |
-       |   A    |    |   B    |    |   C    |
-       +--------+    +--------+    +--------+
-```
-
-#### 3.3.2 数据分片
-
-Redis集群使用哈希槽（hash slot）的概念来分配数据。集群有16384个哈希槽，每个主节点负责一部分槽。
+所有值都包装成 `robj`，`type` 是逻辑类型（string/list/hash/set/zset），`encoding` 是实际的内存布局：
 
 ```c
-int keyHashSlot(char *key, int keylen) {
+struct redisObject {
+    unsigned type:4;
+    unsigned encoding:4;
+    unsigned lru:LRU_BITS;   /* LRU 时间戳，开启 LFU 时存访问计数 */
+    int refcount;
+    void *ptr;
+};
+```
+
+`refcount` 让 0~9999 的整数共享同一份对象，`OBJECT ENCODING key` 可以直接看到某个 key 当前的编码。
+
+### 2.1 小集合的编码与阈值
+
+| 类型 | 小集合编码 | 阈值参数 |
+|---|---|---|
+| string | `int` / `embstr` | 44 字节以内用 `embstr` |
+| hash | `listpack` | `hash-max-listpack-entries` |
+| list | `quicklist`（节点是 listpack） | `list-max-listpack-size` |
+| set | `intset`（全整数） | `set-max-intset-entries` |
+| zset | `listpack` | `zset-max-listpack-entries` |
+
+超过阈值或元素长度超限（`*-max-listpack-value`，默认 64）就转成 `hashtable` / `skiplist` 等常规结构，**转换是单向的**，删到阈值以下也不会转回来。这也是「一个 hash 写进去几十万字段后内存翻几倍」的原因。
+
+### 2.2 listpack 与退场的 ziplist
+
+Redis 7.0 起 hash、zset 的小集合编码改为 `listpack`，7.2 起 list 的 quicklist 节点也统一为 listpack，`ziplist` 只剩旧的 RDB 兼容读取路径保留。`listpack` 去掉了 `ziplist` 的 `zltail` 字段和 `prevlen` 链式长度，因此没有级联更新问题。
+
+`listpack` 的布局：
+
+```
+<total-bytes><num-elements><entry>...<entry><0xFF>
+```
+
+每个 entry 由「编码字节 + 数据 + 变长 backlen」组成，`backlen` 记录自身长度，用于从后往前遍历，替代了 ziplist 里会导致级联更新的 `prevlen`。
+
+它的省内存原理：整数按实际大小编码（7 位、13 位、16/24/32/64 位）、字符串去掉指针和结构体头、元素连续存放不产生碎片。代价是插入删除为 O(N) 内存移动，所以只在小集合上使用。
+
+## 三、字符串：SDS
+
+Redis 没有直接用 C 字符串。3.2 之后按长度分为 `sdshdr5/8/16/32/64` 五种头，按需选最小的一种：
+
+```c
+struct __attribute__ ((__packed__)) sdshdr8 {
+    uint8_t len;        /* 已用长度 */
+    uint8_t alloc;      /* 已分配容量，不含头和结尾 \0 */
+    unsigned char flags;/* 低 3 位标识头类型 */
+    char buf[];
+};
+```
+
+带来的四个性质：
+
+1. `len` 直接可得，`STRLEN` 是 O(1)，不必像 C 那样扫到 `\0`
+2. 追加前检查 `alloc`，不够就扩容，不会越界
+3. 扩容采用预分配（小于 1MB 时翻倍，大于 1MB 时多留 1MB），配合 `alloc` 记录容量，连续 `APPEND` 的 `realloc` 次数大幅减少
+4. 长度由 `len` 决定而非 `\0`，可以存任意二进制，包括 `\0`
+
+`embstr` 是把 `robj` 和 `sdshdr8` 放在一块连续内存里一次分配，长度 ≤44 字节时使用，省掉一次 `malloc`；超过则用 `raw`，`ptr` 单独指向 SDS。
+
+## 四、持久化
+
+| 方式 | 触发 | 丢失窗口 |
+|---|---|---|
+| RDB | `save` 规则 / `BGSAVE` | 两次快照之间 |
+| AOF（`everysec`） | 每秒刷盘 | 约 1 秒 |
+| RDB + AOF 混合 | AOF 重写时以 RDB 打头 | 约 1 秒 |
+
+### 4.1 RDB 与 fork 的代价
+
+`BGSAVE` 通过 `fork` 出子进程写快照，父进程继续服务，靠 COW（写时复制）共享内存页。写入越频繁，需要复制的页越多，内存峰值可能接近两倍，所以配置 `maxmemory` 时要给 fork 留余量。
+
+`SAVE` 是同步的，会阻塞整个实例直到写完，生产环境只用 `BGSAVE`。
+
+### 4.2 AOF 的多文件格式
+
+7.0 之前 AOF 是单个文件，重写时靠 `aof-rewrite-incremental-fsync` 缓解磁盘抖动。7.0 起改为 `appenddirname` 目录下的三部分：
+
+- `*.base.rdb`：重写生成的基础快照（RDB 格式）
+- `*.incr.aof`：增量命令
+- `*.manifest`：记录当前使用了哪些文件
+
+好处是重写不再需要重命名大文件，也不再有「重写失败导致 AOF 不可用」的问题。`appendfsync` 的三个取值中 `always` 每条命令都 fsync（吞吐下降一个量级），`everysec` 是默认且推荐的折中，`no` 交给内核决定刷盘时机。
+
+## 五、高可用
+
+### 5.1 主从复制
+
+从节点执行 `REPLICAOF host port` 后走三步：建立连接并 `PING` → 认证、发送 `REPLCONF` 拿到 `runid` 和 `offset` → `PSYNC`。
+
+- 如果 `runid` 匹配且偏移量还在 master 的 `repl-backlog`（环形缓冲区，大小 `repl-backlog-size`）范围内，走**增量同步**，只补发缺失的命令
+- 否则走**全量同步**：主节点 `BGSAVE` 生成 RDB 传输，期间的新写入缓存在 client buffer 里，RDB 传完再补发
+
+复制是**异步**的：主节点执行完命令就返回客户端，不等从节点确认。网络抖动或从节点阻塞超过 `repl-backlog-size` 就会退化成全量同步，这是「主从延迟突然变大、网络流量打满」的常见原因，加大 `repl-backlog-size` 可以缓解。
+
+### 5.2 Sentinel
+
+Sentinel 本身是一个独立进程，通常部署 3 或 5 个，监控主从、执行切换、向客户端提供新主地址。
+
+判定分两层：单个 Sentinel 在 `down-after-milliseconds` 内 ping 不通就标记**主观下线**（SDOWN）；达到 `quorum` 个 Sentinel 都这么认为，才标记**客观下线**（ODOWN）并触发选举。
+
+容易配错的两点：
+
+- `quorum` 只决定「何时判定下线」，**真正执行切换需要多数 Sentinel 选出 leader**（N/2+1），所以 3 个 Sentinel 的 `quorum` 写 2 时，挂掉 2 个仍然无法切换
+- 切换后旧主恢复会被降级为从节点，但客户端如果缓存了地址，需要靠 Sentinel 感知或客户端库的订阅机制更新，否则会一直写旧主
+
+### 5.3 Cluster
+
+Cluster 按槽分片，16384 个槽平均分给各主节点，每个主节点带若干从节点。槽数固定为 16384 而非更大，是因为节点间用 gossip 交换槽位位图，位图大小直接影响心跳包体积。
+
+```c
+unsigned int keyHashSlot(char *key, int keylen) {
     return crc16(key, keylen) & 16383;
 }
 ```
 
-当客户端存储一个key-value对时，Redis会计算key的哈希值，然后对16384取模，得到的结果就是这个key应该被存储的哈希槽。
+注意是 **CRC16 后按位与 16383**，不是「对 key 做哈希再取模」。位与要求槽数是 2 的幂，这也是 16384 的由来。
 
-#### 3.3.3 集群通信
+**hash tag**：key 里若含 `{...}`，只对花括号内的部分做 CRC16，`{user:1}:name` 和 `{user:1}:age` 会落到同一槽。跨 key 的命令（`MGET`、`SUNION`、Lua、事务）必须靠它保证同槽，否则报 `CROSSSLOT Keys in request don't hash to the same slot`。
 
-Redis集群中的节点通过一种叫做"gossip协议"的机制来交换信息。每个节点都维护一份关于整个集群的信息，包括：
+故障转移的完整条件：
 
-- 哪些节点在线
-- 每个主节点负责的哈希槽范围
-- 每个从节点对应的主节点
+1. 从节点与主节点失联超过 `cluster-node-timeout`，且主节点被多数持有槽的主节点标记为 `FAIL`
+2. 从节点检查自身数据是否过旧（`cluster-replica-validity-factor`），太旧则不参选
+3. 向持有槽的主节点拉票，**拿到过半数**即晋升，并接管原主节点的槽
+4. 其余从节点改为复制新主
 
-节点之间通过定期的ping-pong消息来检测彼此的状态和交换信息。
+只挂一个主节点但集群整体失去多数主节点时（例如 3 主 3 从里挂了 2 个主），集群会停止服务并报 `CLUSTERDOWN`，这是 `cluster-require-full-coverage yes`（默认）的行为。
 
-#### 3.3.4 故障转移
+### 5.4 一致性边界
 
-当集群中的某个主节点失败时，它的从节点之一会被提升为新的主节点。这个过程是自动进行的，不需要人工干预。具体步骤如下：
-
-1. 从节点发现自己的主节点已经下线。
-2. 从节点开始申请成为新的主节点。
-3. 集群中的其他主节点进行投票。
-4. 得票最多的从节点成为新的主节点。
-5. 新的主节点开始接收客户端请求。
-
-#### 3.3.5 一致性保证
-
-Redis集群提供了一定程度的一致性保证，但不是强一致性。在某些情况下（如网络分区），可能会丢失一些最近的写操作。
-
-为了提高一致性，Redis提供了 WAIT 命令，允许客户端等待写操作被复制到指定数量的从节点。
+Redis 复制是异步的，主节点在故障瞬间尚未同步的写入会丢失。`WAIT` 可以让客户端阻塞到指定数量的副本确认：
 
 ```redis
 SET key value
 WAIT 1 0
 ```
 
-这个命令会等待该写操作至少被复制到1个从节点，超时时间为0（永不超时）。
+返回实际确认的副本数，`0` 表示不设超时。但它只保证「已到达 N 个副本」，不保证落盘；且这些副本中若有一个被提升为主，其余副本上的写入仍可能被回滚（`min-replicas-to-write` 只是拒绝写入，不改变复制语义）。需要强一致的场景，判定依据应该放在支持共识的存储里。
 
-## 总结
+## 六、常见问题对照
 
-Redis通过其独特的技术特性、高效的实现机制以及多样化的高可用方案，成为了现代互联网架构中不可或缺的组件。深入理解Redis的这些原理，尤其是其高性能的数据结构如SDS和压缩列表，以及复杂的集群机制，对于我们更好地使用和优化Redis至关重要。在实际应用中，我们需要根据具体场景选择合适的数据结构和高可用方案，以充分发挥Redis的性能优势。
+| 现象 | 常见原因 |
+|---|---|
+| 偶发超时、`SLOWLOG` 有记录 | 大 key 的 `DEL`/`HGETALL`，或 `KEYS` 全扫 |
+| 内存持续上涨、`MEMORY USAGE` 突增 | 小集合编码转成 hashtable，或 listpack 里塞了大元素 |
+| 主从延迟突然增大、流量翻倍 | 全量同步，`repl-backlog-size` 不够或从节点阻塞 |
+| Sentinel 不切换 | Sentinel 数量不足多数，或 `quorum` 与实例数配错 |
+| `CROSSSLOT` / `MOVED` 循环 | 多 key 命令未用 hash tag；客户端未处理重定向 |
+| `OOM command not allowed` | `maxmemory` 打满且 `maxmemory-policy` 为 `noeviction` |
+
+## 参考
+
+- [Redis 官方文档](https://redis.io/docs/latest/)
+- [Redis 持久化（RDB / AOF）](https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/)
+- [Redis Cluster 规范](https://redis.io/docs/latest/operate/oss_and_stack/reference/cluster-spec/)
+- [Sentinel 高可用文档](https://redis.io/docs/latest/operate/oss_and_stack/management/sentinel/)
