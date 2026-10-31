@@ -202,10 +202,18 @@ function findOml2dStatusBar(): HTMLElement | null {
 /** 文章页让看板娘休息（收起成状态条），回列表页再唤醒。
  * 用户自己点菜单休息的情况不自动唤醒，所以只处理「自动睡下」的那次。 */
 let autoSleeping = false
+/** 状态条有可能是资源加载中的「正在加载」，那不算休息 */
+function isOml2dSleeping(): boolean {
+  const bar = findOml2dStatusBar()
+  if (!bar) return false
+  const text = (bar.textContent || '').trim()
+  return text !== '' && !/正在加载|loading/i.test(text)
+}
+
 function applyPageSleepState() {
   if (!widget) return
   if (!isListPage()) {
-    if (!findOml2dStatusBar()) {
+    if (!isOml2dSleeping()) {
       try {
         widget.sleep()
         autoSleeping = true
@@ -214,7 +222,7 @@ function applyPageSleepState() {
       }
     }
   } else if (autoSleeping) {
-    findOml2dStatusBar()?.click()
+    if (isOml2dSleeping()) findOml2dStatusBar()?.click()
     autoSleeping = false
   }
 }
