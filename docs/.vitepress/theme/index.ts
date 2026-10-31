@@ -189,8 +189,8 @@ function isListPage() {
   return listPaths.has(path) || p.endsWith('/')
 }
 
-/** 看板娘休息后会在 body 下挂一个 z-index 9998 的状态条，点它可恢复 */
-/** 找 l2d 的休息状态条（z-index 9998，不含 canvas） */
+/** 找 l2d 的休息状态条（z-index 9998，不含 canvas）。
+ * 注意筛选含「正在休息」文案：加载中的条（正在加载）天然被排除，唤回时绝不会点到它。 */
 function findOml2dStatusBar(): HTMLElement | null {
   const nodes = [...document.body.children] as HTMLElement[]
   return (
@@ -235,20 +235,14 @@ function applyPageSleepState() {
   } else if (autoSleeping) {
     // 回列表页：把「我们自动睡下的那一次」唤回。只有 autoSleeping 为真才点状态条，
     // 用户手动休息的不动（l2d 没有程序化唤醒 API，唤回的唯一入口是条上自带的 click 回调）。
-    // 前置守卫缺一不可：
-    //   ① 文案必须是「正在休息」——「正在加载」阶段回调还没挂上，点了会把实例点乱；
-    //   ② transform 可见（translateX(0px)）才是真在休息——唤醒后文案仍留着，
-    //      只有 hide() 会把条滑出屏幕（translateX(-100%)），此刻点它无回调、无效但多余。
-    // 条还没就绪/还在加载 → 不动 lastSleepPath，让 800ms 轮询下一拍再判。
+    // 守卫：transform 可见（translateX(0px)）才是真在休息——唤醒后文案仍留着「正在休息」
+    // （finder 也靠它定位），只有 hide() 会把条滑出屏幕（translateX(-100%)）。
+    // 条不存在（实例被重建）或已滑出（用户在文章页自己点开过）→ 无需唤回，清标志。
     const bar = findOml2dStatusBar()
-    const txt = (bar?.textContent || '').trim()
-    if (bar && /正在休息/.test(txt) && bar.style.transform.includes('translateX(0px)')) {
+    if (bar && bar.style.transform.includes('translateX(0px)')) {
       bar.click()
       autoSleeping = false
-    } else if (bar && /正在加载/.test(txt)) {
-      lastSleepPath = null
     } else {
-      // 没有条（实例刚重挂）或条已滑出（用户在文章页自己点开过）——无需唤回
       autoSleeping = false
     }
   }
