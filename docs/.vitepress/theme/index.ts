@@ -207,14 +207,6 @@ function findOml2dStatusBar(): HTMLElement | null {
 let autoSleeping = false
 let lastSleepPath: string | null = null
 
-/** 状态条有可能是资源加载中的「正在加载」，那不算休息 */
-function isOml2dSleeping(): boolean {
-  const bar = findOml2dStatusBar()
-  if (!bar) return false
-  const text = (bar.textContent || '').trim()
-  return text !== '' && !/正在加载|loading/i.test(text)
-}
-
 function applyPageSleepState() {
   if (!widget) return
   const path = window.location.pathname.replace(/\.html$/, '')
@@ -222,16 +214,21 @@ function applyPageSleepState() {
   lastSleepPath = path
 
   if (!isListPage()) {
-    if (!isOml2dSleeping()) {
-      try {
-        widget.sleep()
-        autoSleeping = true
-      } catch {
-        lastSleepPath = null // 实例没准备好，下次再判
-      }
+    // 无条件调用：sleep() 本身幂等；靠状态条文案判断会误判
+    // （用户手动唤回后状态条 DOM 仍在，导致下次进文章页以为已经睡下）
+    try {
+      widget.sleep()
+      autoSleeping = true
+    } catch {
+      lastSleepPath = null // 实例没准备好，下次路由变化再判
     }
   } else if (autoSleeping) {
-    if (isOml2dSleeping()) findOml2dStatusBar()?.click()
+    // 监听绑在状态条内部元素上，直接派发 click 才能唤回
+    const bar = findOml2dStatusBar()
+    // 先撤掉上面钉住位置的 !important，否则 l2d 收不起状态条
+    bar?.style.removeProperty('transform')
+    const target = (bar?.querySelector('span') as HTMLElement) || bar
+    target?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     autoSleeping = false
   }
 }
