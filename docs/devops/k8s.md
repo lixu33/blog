@@ -230,6 +230,12 @@ kubectl port-forward svc/web 8080:80
 
 `kubectl exec` 进不去时，用 `kubectl debug` 起一个临时容器挂到目标 Pod 的命名空间里，镜像里没有 shell 的极简镜像只能这样查。
 
+## 相关阅读
+
+- [Docker 从入门到实践](/devops/docker)：镜像分层、构建与运行参数
+- [Caddy 入门：自动 HTTPS 与反向代理](/devops/caddy)：集群入口的 TLS 与转发
+- [Redis 原理与高可用方案](/backend/redis)：集群里的缓存与限流方案
+
 ## 参考
 
 - [Kubernetes 组件与架构](https://kubernetes.io/docs/concepts/architecture/)

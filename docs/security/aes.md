@@ -260,6 +260,12 @@ TLS 就是标准答案：
 | 密钥存储 | 不写死在代码里；用 KMS、环境变量或密钥库 |
 | 认证 vs 加密 | GCM 自带完整性校验；CBC 需额外加 HMAC |
 
+## 相关阅读
+
+- [JNA：Java 调用原生库的实践](/backend/jna)：调用 OpenSSL 等 native 加密库
+- [Spring Boot 自动配置与启动流程](/backend/springBoot)：密钥配置与加密服务的接入
+- [Redis 原理与高可用方案](/backend/redis)：缓存里敏感数据该怎么处理
+
 ## 参考
 
 - [NIST SP 800-38D：GCM 模式规范](https://csrc.nist.gov/pubs/sp/800/38/d/final)

@@ -188,6 +188,12 @@ fetch.min.bytes=1
 | 磁盘写满 | `retention.bytes` 没设，或 `cleanup.policy=compact` 但 key 无限增长 |
 | 消息顺序错乱 | 无 key 走了粘性分区，或生产端 `max.in.flight` > 1 且关闭幂等 |
 
+## 相关阅读
+
+- [Redis 原理与高可用方案](/backend/redis)：缓存与消息队列的分工
+- [Spring Boot 自动配置与启动流程](/backend/springBoot)：Spring 侧的消费者配置
+- [Netty 高性能网络框架](/backend/netty)：高吞吐场景下的自定义网络协议
+
 ## 参考
 
 - [Kafka 官方文档：设计与实现](https://kafka.apache.org/documentation/#design)

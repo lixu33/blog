@@ -205,6 +205,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 | 中文乱码 / 时区错 | 精简镜像缺 `tzdata` 和 locale，需自行安装并设 `TZ` |
 | 停止容器要等 10 秒 | 应用不处理 `SIGTERM`，加 `--init` 或补信号处理 |
 
+## 相关阅读
+
+- [Kubernetes 入门指南](/devops/k8s)：镜像进集群之后的调度、服务发现与排障
+- [Caddy 入门：自动 HTTPS 与反向代理](/devops/caddy)：容器里跑 Web 服务时，反代和证书交给它
+- [Spring Boot 自动配置与启动流程](/backend/springBoot)：把应用打成镜像前的构建与配置加载
+
 ## 参考
 
 - [Docker 构建最佳实践](https://docs.docker.com/build/building/best-practices/)

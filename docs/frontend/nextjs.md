@@ -373,6 +373,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 `metadata` 与 `generateMetadata` 在同一个文件里只能二选一。子段未声明时会继承父段的字段，`title` 可以写成 `{ template: '%s | Acme', default: 'Acme' }` 统一加后缀。
 
+## 相关阅读
+
+- [TypeScript 与 ES6 语法要点](/frontend/typeScript)：类型系统与编译选项
+- [Caddy 入门：自动 HTTPS 与反向代理](/devops/caddy)：上线时的反代与 HTTPS
+- [Docker 从入门到实践](/devops/docker)：前端产物的镜像与部署
+
 ## 参考
 
 - [Next.js 官方文档：App Router](https://nextjs.org/docs/app)

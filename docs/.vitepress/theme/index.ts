@@ -199,9 +199,14 @@ function findOml2dStatusBar(): HTMLElement | null {
   )
 }
 
-/** 文章页让看板娘休息（收起成状态条），回列表页再唤醒。
- * 用户自己点菜单休息的情况不自动唤醒，所以只处理「自动睡下」的那次。 */
+/** 文章页收起看板娘（她挡住正文），回列表页唤醒。
+ *
+ * 只按「路径变化」触发一次：同一个页面里不再干预，
+ * 这样用户在详情页手动点开状态条后，不会被下一次 DOM 变化又收回去；
+ * 但只要重新导航到文章页，还是按规则收起。 */
 let autoSleeping = false
+let lastSleepPath: string | null = null
+
 /** 状态条有可能是资源加载中的「正在加载」，那不算休息 */
 function isOml2dSleeping(): boolean {
   const bar = findOml2dStatusBar()
@@ -212,13 +217,17 @@ function isOml2dSleeping(): boolean {
 
 function applyPageSleepState() {
   if (!widget) return
+  const path = window.location.pathname.replace(/\.html$/, '')
+  if (path === lastSleepPath) return
+  lastSleepPath = path
+
   if (!isListPage()) {
     if (!isOml2dSleeping()) {
       try {
         widget.sleep()
         autoSleeping = true
       } catch {
-        /* 实例还没准备好，下次路由变化再试 */
+        lastSleepPath = null // 实例没准备好，下次再判
       }
     }
   } else if (autoSleeping) {

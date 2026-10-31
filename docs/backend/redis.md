@@ -224,6 +224,12 @@ WAIT 1 0
 | `CROSSSLOT` / `MOVED` 循环 | 多 key 命令未用 hash tag；客户端未处理重定向 |
 | `OOM command not allowed` | `maxmemory` 打满且 `maxmemory-policy` 为 `noeviction` |
 
+## 相关阅读
+
+- [Kafka 存储与复制机制](/backend/kafka)：缓存之外的异步消息路径
+- [Spring Boot 自动配置与启动流程](/backend/springBoot)：缓存接入与失效策略的落地位置
+- [深入 Spring 源码解析](/backend/spring)：缓存与容器 Bean 的关系
+
 ## 参考
 
 - [Redis 官方文档](https://redis.io/docs/latest/)

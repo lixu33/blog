@@ -277,6 +277,11 @@ sudo ufw allow from <你的IP> to any port 18789
 
 第一次部署控制在三件事以内：一个平台、一个模型、一个定时任务。跑通一周，再决定加什么。
 
+## 相关阅读
+
+- [Hermes Agent：可自托管的开源 AI 智能体](/ai/hermesAgent)：网关型助理的另一种架构
+- [AI Agent Skills 入门：从概念到可运行的技能包](/ai/agentSkills)：技能包怎么写、怎么加载
+
 ## 参考
 
 - [OpenClaw 官网](https://openclaw.ai/)

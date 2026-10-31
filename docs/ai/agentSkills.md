@@ -248,6 +248,11 @@ description: 做什么 + 什么时候用
 
 README 里补三段：依赖、配置项（环境变量）、一个最小示例。许可证按需加，MIT 最常见。
 
+## 相关阅读
+
+- [Hermes Agent：可自托管的开源 AI 智能体](/ai/hermesAgent)：运行这些技能的主机环境
+- [OpenClaw 开源 AI 助理部署指南](/ai/openclaw)：消息平台接入的完整例子
+
 ## 参考
 
 - [Claude Code 文档](https://docs.anthropic.com)

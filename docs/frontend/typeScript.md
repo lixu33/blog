@@ -224,6 +224,11 @@ ESM 是静态解析的，`import` 必须写在顶层，打包工具据此做 tre
 4. **可选属性 vs `undefined`**：`{ a?: string }` 与 `{ a: string | undefined }` 在 `exactOptionalPropertyTypes` 下语义不同，前者表示「可以没有这个键」。
 5. **数组 `for...in`**：会遍历原型链上的键，数组一律用 `for...of` 或 `forEach`。
 
+## 相关阅读
+
+- [Next.js 全栈应用入门](/frontend/nextjs)：这些语法在框架里的实际用法
+- [Caddy 入门：自动 HTTPS 与反向代理](/devops/caddy)：静态产物的托管与缓存
+
 ## 参考
 
 - [TypeScript 官方手册：Everyday Types](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html)

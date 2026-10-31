@@ -205,6 +205,11 @@ volumes:
 | 上下文越用越大 | 长任务未收敛，改用 subagent 或 `execute_code` 分段 |
 | 手机端回复被截断 | 平台单条消息长度限制，长输出改发文件 |
 
+## 相关阅读
+
+- [OpenClaw 开源 AI 助理部署指南](/ai/openclaw)：同类自托管助理的另一套实现
+- [AI Agent Skills 入门：从概念到可运行的技能包](/ai/agentSkills)：给智能体加可复用技能
+
 ## 参考
 
 - [Hermes Agent 官方文档](https://hermes-agent.nousresearch.com/docs)

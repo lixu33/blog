@@ -243,6 +243,12 @@ curl localhost:2019/metrics          # Prometheus 指标
 - **本地开发**：`caddy file-server --browse` 一行起服务，或 `caddy reverse-proxy --from :80 --to :3000`
 - **多站点共存**：多个域名块写在同一 Caddyfile，证书各自独立申请
 
+## 相关阅读
+
+- [Docker 从入门到实践](/devops/docker)：用 compose 起服务再交给 Caddy 反代
+- [Kubernetes 入门指南](/devops/k8s)：多副本部署时的入口与证书
+- [Next.js 全栈应用入门](/frontend/nextjs)：前端服务的生产部署方式
+
 ## 参考
 
 - [Caddy 官方文档](https://caddyserver.com/docs/)

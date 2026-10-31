@@ -180,6 +180,12 @@ public @interface SpringBootApplication {
 | 启动报循环依赖 | 2.6+ 默认禁止，先找依赖环而不是关检查 |
 | 启动慢但看不出哪慢 | 开 actuator 的 startup 端点看步骤耗时 |
 
+## 相关阅读
+
+- [深入 Spring 源码解析](/backend/spring)：容器、AOP 与 Bean 生命周期
+- [Docker 从入门到实践](/devops/docker)：应用镜像的构建与运行
+- [Kafka 存储与复制机制](/backend/kafka)：消息驱动的服务与配置
+
 ## 参考
 
 - [Spring Boot 自动配置官方文档](https://docs.spring.io/spring-boot/reference/using/auto-configuration.html)
