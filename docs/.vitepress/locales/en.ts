@@ -1,4 +1,5 @@
 import { defineLocaleConfig } from '@sugarat/theme/node'
+import { buildOml2dSelf } from '../oml2d-self'
 
 export const themeEN = defineLocaleConfig({
   author: 'Ray',
@@ -73,58 +74,24 @@ export const themeEN = defineLocaleConfig({
       tag: 'Tags',
     }
   },
-  // 看板娘英文文案：按 locale 用这里的 oml2dSelf 浅覆盖根配置（浅合并，必须写全）
+  // 看板娘英文文案：按 locale 用这里的 oml2dSelf 浅覆盖根配置（浅合并，必须整键给全——
+  // 结构由 oml2d-self.ts 的工厂生成，与中文同源，只有文案不同）
   // 键名与 blog-theme.ts 一致，主题不认这个键，由 theme/index.ts 自管实例
-  oml2dSelf: {
-    model: {
-      path: '/live2d/whale-girl-v1/c_0120.model3.json',
-      scale: 1,
-      offset: [0, 0],
-      tips: {
-        welcomeMessage: [
-          'Deep-sea signal connected~',
-          "Blowing bubbles to say I'm here~",
-          'Popping up for air — and to see you~',
-          'Swim beautifully today~',
-          'The current brought you here~',
-          "Don't rush off — rest a while~"
-        ],
-        messages: [
-          'Remember to drink water~',
-          'Tired? Click me to take a break',
-          'Hit "Rest" and I will step aside'
-        ],
-        duration: 4000,
-        interval: 12000,
-        // 库默认 whiteSpace: nowrap，英文长句会溢出气泡（详见 blog-theme.ts 同名注释）
-        // maxWidth 必须 ≤ 看板娘宽度（移动端 130px），否则气泡会向左越界
-        style: { whiteSpace: 'normal', width: 'max-content', maxWidth: '130px' }
-      }
-    },
-    position: 'bottom-left',
-    size: { width: 220, height: 220 },
-    mobileDisplay: true,
-    mobileSize: { width: 130, height: 130 },
-    primaryColor: 'rgba(37, 99, 235, 0.92)',
-    menus: {
-      items: [
-        {
-          icon: 'mdi:party-popper',
-          label: 'Play',
-          // 动作表内联：配置函数会被序列化到客户端，闭包外的变量不会跟着过去
-          onClick: (widget: { l2d?: { playMotion: (group: string) => void } }) => {
-            const groups = [
-              'aidale', 'selfie', 'selfieQuick', 'ketchup', 'openLid', 'bubble', 'splash'
-            ]
-            widget.l2d?.playMotion(groups[Math.floor(Math.random() * groups.length)])
-          }
-        },
-        {
-          icon: 'mdi:bed',
-          label: 'Rest',
-          onClick: (widget: { sleep: () => void }) => widget.sleep()
-        }
-      ]
-    }
-  },
+  oml2dSelf: buildOml2dSelf({
+    welcome: [
+      'Deep-sea signal connected~',
+      "Blowing bubbles to say I'm here~",
+      'Popping up for air — and to see you~',
+      'Swim beautifully today~',
+      'The current brought you here~',
+      "Don't rush off — rest a while~"
+    ],
+    messages: [
+      'Remember to drink water~',
+      'Tired? Click me to take a break',
+      'Hit "Rest" and I will step aside'
+    ],
+    playLabel: 'Play',
+    restLabel: 'Rest'
+  }),
 })

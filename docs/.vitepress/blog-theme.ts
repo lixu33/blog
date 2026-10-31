@@ -2,6 +2,7 @@
 import { getThemeConfig } from '@sugarat/theme/node'
 import type { Theme } from '@sugarat/theme'
 import { themeEN } from './locales/en'
+import { buildOml2dSelf } from './oml2d-self'
 
 const baseUrl = 'https://blog.lixu.dev'
 const copyright = 'MIT License | 烟霞不系舟'
@@ -76,78 +77,27 @@ const blogTheme = getThemeConfig({
   // 模型为 CC BY-NC-SA 4.0（非商业 + 署名）：形象 上善无形（OC 溟月）/ 二次设计 ZipZipPipe / 模型 氵六青
   // 授权与来源全文见 /live2d/whale-girl-v1/NOTICE.txt、AUTHORS.txt、PROVENANCE.txt（随模型一起分发）
   //
-  // 主题 0.5.29 用的是 l2d-widget（不再是 oh-my-live2d），API 有三处坑：
-  //   1) menus.items 必须是 MenuItem[]（{ label, onClick }）；传函数会在建菜单时 for...of 崩溃，
-  //      整个看板娘都不渲染。提供 items 即完全替换默认项（默认是 切换模型/休眠/About）。
-  //   2) 问候语在 model.tips 内，字段名是 welcomeMessage / messages（随机取一条 / 循环播放）。
-  //      注意：l2d-widget 没有任何时段判断（全文无 getHours / daybreak / night），一句话只在页面
-  //      加载时随机抽一次，所以这里必须写任何钟点都通用的问候语，不能写「早上好 / 晚上好」。
-  //   3) 按钮文字来自 MenuItem.label；配了 icon 就显示图标（运行时从 api.iconify.design 拉取），
-  //      label 同时作为 title 提示。图标拉取失败会回退成文字。
   // 键名叫 oml2dSelf 而不是 oml2d：主题只认 oml2d，改名后它不再自动渲染看板娘，
   // 改由 theme/index.ts 自己持有实例（切语言不销毁重建，只就地换文案）。
-  // 英文文案见 locales/en.ts 的 oml2dSelf（按 locale 浅合并 blog 配置，须写全）
-  oml2dSelf: {
-    model: {
-      path: '/live2d/whale-girl-v1/c_0120.model3.json',
-      scale: 1,
-      offset: [0, 0],
-      tips: {
-        welcomeMessage: [
-          '深海信号已连接～',
-          '冒个泡泡，表示我在线',
-          '上来换口气，顺便看看你',
-          '今天也要游得漂亮哦',
-          '洋流把你带到这儿啦',
-          '别急着走，先歇一会儿'
-        ],
-        messages: [
-          '记得多喝水～',
-          '累了就点我休息一下',
-          '点「休息」我就退到一边啦'
-        ],
-        duration: 4000,
-        interval: 12000,
-        // 库里气泡写死 whiteSpace: nowrap + maxWidth: 200px，长文案（尤其英文）会溢出气泡。
-        // width: max-content 让气泡按内容撑开（不加的话会被容器挤到 ~110px 折成多行）；
-        // maxWidth 必须 ≤ 看板娘宽度——气泡是「以看板娘中心为中心」定位的，宽度超过看板娘宽度
-        // 就会向左越界（移动端看板娘只有 130px）。
-        style: { whiteSpace: 'normal', width: 'max-content', maxWidth: '130px' }
-      }
-    },
-    position: 'bottom-left',
-    size: { width: 220, height: 220 },
-    mobileDisplay: true,
-    mobileSize: { width: 130, height: 130 },
-    // 菜单/状态条底色：默认 rgba(96,165,250,.9) 配 75% 白字对比度不够，
-    // 换成深一号的蓝（#2563EB）保证图标和文字看得清
-    primaryColor: 'rgba(37, 99, 235, 0.92)',
-    menus: {
-      items: [
-        {
-          icon: 'mdi:party-popper',
-          label: '玩耍',
-          // l2d 的 playMotion(group) 省略 index 时随机播该组动作（dist/index.js#playMotion）。
-          // 这套模型除 idle 外还有 7 个动作组（见 c_0120.model3.json 的 Motions：
-          // aidale / selfie / selfieQuick / ketchup / openLid / bubble / splash），
-          // 默认只循环 idle，所以这里给个按钮手动触发一下。
-          // 注意：VitePress 把配置里的函数 toString 后在客户端重建，闭包外的常量会丢，
-          // 所以动作表必须写在函数体内。
-          onClick: (widget: { l2d?: { playMotion: (group: string) => void } }) => {
-            const groups = [
-              'aidale', 'selfie', 'selfieQuick', 'ketchup', 'openLid', 'bubble', 'splash'
-            ]
-            widget.l2d?.playMotion(groups[Math.floor(Math.random() * groups.length)])
-          }
-        },
-        {
-          icon: 'mdi:bed',
-          label: '休息',
-          onClick: (widget: { sleep: () => void }) => widget.sleep()
-        }
-      ]
-    }
-  }
+  // 结构与 l2d API 的坑集中在 oml2d-self.ts 的工厂里，这里只给中文文案；
+  // 英文在 locales/en.ts（按 locale 浅合并 blog 配置，en 侧必须整键给全——同用工厂保证）。
+  oml2dSelf: buildOml2dSelf({
+    welcome: [
+      '深海信号已连接～',
+      '冒个泡泡，表示我在线',
+      '上来换口气，顺便看看你',
+      '今天也要游得漂亮哦',
+      '洋流把你带到这儿啦',
+      '别急着走，先歇一会儿'
+    ],
+    messages: [
+      '记得多喝水～',
+      '累了就点我休息一下',
+      '点「休息」我就退到一边啦'
+    ],
+    playLabel: '玩耍',
+    restLabel: '休息'
+  })
 })
 
 export { blogTheme }
