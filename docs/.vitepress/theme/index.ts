@@ -208,6 +208,15 @@ function findOml2dStatusBar(): HTMLElement | null {
 let autoSleeping = false
 let lastSleepPath: string | null = null
 
+/** 是否已在休息态。状态条的文案唤醒后仍是「正在休息」（DOM 不删），不能当判断依据；
+ * 库内部 showRest 是 transform translateY(50%) translateX(0)（可见），hide() 才会滑出屏幕，
+ * 所以用 transform 判：滑出 = 没在休息。找不到状态条（首次加载 / 未创建）视为没在休息。 */
+function isOml2dSleeping(): boolean {
+  const bar = findOml2dStatusBar()
+  if (!bar) return false
+  return !bar.style.transform.includes('translateX(-100%)')
+}
+
 function applyPageSleepState() {
   if (!widget) return
   const path = window.location.pathname.replace(/\.html$/, '')
@@ -215,6 +224,8 @@ function applyPageSleepState() {
   lastSleepPath = path
 
   if (!isListPage()) {
+    // 二次 sleep() 会把她唤回来，已睡下就不要再收
+    if (isOml2dSleeping()) return
     try {
       autoSleeping = true
       widget.sleep()
