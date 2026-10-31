@@ -180,56 +180,92 @@ function patchHardcodedZhUi() {
 
 /** 列表页（首页/时间线/分类目录）：这些页面上看板娘正常待着，其它页面视为文章详情页 */
 function isListPage() {
-  const raw = window.location.pathname.replace(/\/+$/, '')
-  const path = raw.replace(/\.html$/, '')
+  const p = window.location.pathname
+  const bare = p.replace(/\/+$/, '')
+  const path = bare.replace(/\.html$/, '')
   const listPaths = new Set(['', '/index', '/en', '/en/index', '/timeline', '/en/timeline'])
-  return listPaths.has(path) || raw.endsWith('/')
+  // 注意用原始 pathname 判断尾斜杠：分类页 /devops/ 去掉斜杠后变成 /devops，
+  // 和文章 /devops 无法区分
+  return listPaths.has(path) || p.endsWith('/')
 }
 
 /** 看板娘休息后会在 body 下挂一个 z-index 9998 的状态条，点它可恢复 */
-function findOml2dStatusBar(): HTMLElement | null {
+/** 收起/展开看板娘。
+ * 不用 l2d 自带的 sleep()：它把状态条平移出屏幕且设成 pointer-events:none，
+ * 用户点不到，等于没有恢复入口；这里直接控舞台容器 + 自建一个小按钮。 */
+let oml2dCollapsed = false
+let autoCollapsed = false
+let lastSleepPath: string | null = null
+
+function oml2dStage(): HTMLElement | null {
   const nodes = [...document.body.children] as HTMLElement[]
   return (
-    nodes.find(
-      (el) =>
-        el.tagName === 'DIV' &&
-        el.id !== 'app' &&
-        Number.parseInt(getComputedStyle(el).zIndex, 10) === 9998
-    ) || null
+    nodes.find((el) => {
+      if (el.tagName !== 'DIV' || el.id === 'app') return false
+      if (!el.querySelector('canvas')) return false
+      const z = Number.parseInt(getComputedStyle(el).zIndex, 10)
+      return Number.isFinite(z) && z >= 9990
+    }) || null
   )
 }
 
-/** 文章页收起看板娘（她挡住正文），回列表页唤醒。
- *
- * 只按「路径变化」触发一次：同一个页面里不再干预，
- * 这样用户在详情页手动点开状态条后，不会被下一次 DOM 变化又收回去；
- * 但只要重新导航到文章页，还是按规则收起。 */
-let autoSleeping = false
-let lastSleepPath: string | null = null
+function setOml2dCollapsed(collapsed: boolean) {
+  const stage = oml2dStage()
+  if (!stage) return
+  stage.style.display = collapsed ? 'none' : ''
+  oml2dCollapsed = collapsed
 
+  let btn = document.getElementById('oml2d-wake') as HTMLButtonElement | null
+  if (collapsed) {
+    if (!btn) {
+      btn = document.createElement('button')
+      btn.id = 'oml2d-wake'
+      btn.type = 'button'
+      btn.title = '展开看板娘'
+      btn.textContent = '🐋'
+      Object.assign(btn.style, {
+        position: 'fixed',
+        left: '10px',
+        bottom: '96px',
+        zIndex: '9997',
+        width: '34px',
+        height: '34px',
+        borderRadius: '50%',
+        border: 'none',
+        background: 'rgba(37, 99, 235, 0.9)',
+        color: '#fff',
+        fontSize: '16px',
+        lineHeight: '34px',
+        textAlign: 'center',
+        cursor: 'pointer',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
+      } as Partial<CSSStyleDeclaration>)
+      btn.addEventListener('click', () => {
+        setOml2dCollapsed(false)
+        autoCollapsed = false
+      })
+      document.body.appendChild(btn)
+    }
+  } else if (btn) {
+    btn.remove()
+  }
+}
+
+/** 文章页收起看板娘（她挡住正文），回列表页再展开。
+ * 只按「路径变化」触发：同一页面内不干预，用户手动展开后不会被收回去。 */
 function applyPageSleepState() {
-  if (!widget) return
+  const stage = oml2dStage()
+  if (!stage) return
   const path = window.location.pathname.replace(/\.html$/, '')
   if (path === lastSleepPath) return
   lastSleepPath = path
 
   if (!isListPage()) {
-    // 无条件调用：sleep() 本身幂等；靠状态条文案判断会误判
-    // （用户手动唤回后状态条 DOM 仍在，导致下次进文章页以为已经睡下）
-    try {
-      widget.sleep()
-      autoSleeping = true
-    } catch {
-      lastSleepPath = null // 实例没准备好，下次路由变化再判
-    }
-  } else if (autoSleeping) {
-    // 监听绑在状态条内部元素上，直接派发 click 才能唤回
-    const bar = findOml2dStatusBar()
-    // 先撤掉上面钉住位置的 !important，否则 l2d 收不起状态条
-    bar?.style.removeProperty('transform')
-    const target = (bar?.querySelector('span') as HTMLElement) || bar
-    target?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    autoSleeping = false
+    setOml2dCollapsed(true)
+    autoCollapsed = true
+  } else if (autoCollapsed) {
+    setOml2dCollapsed(false)
+    autoCollapsed = false
   }
 }
 
@@ -320,8 +356,8 @@ const Layout = defineComponent({
       try {
         const { createWidget } = await import('l2d-widget')
         widget = createWidget(options)
-        // 实例就绪后按当前页面决定是否直接休息（文章页收起）
-        setTimeout(() => applyPageSleepState(), 400)
+        // 实例就绪后按当前页面决定是否收起
+        setTimeout(() => applyPageSleepState(), 500)
       } finally {
         creating = false
       }
@@ -347,6 +383,8 @@ const Layout = defineComponent({
       wrapTables()
       patchNotFound()
       patchHardcodedZhUi() // 走一次，处理首屏已渲染的部分
+      // SPA 路由切换时 DOM 变化不一定触发 observer，低频轮询兜底（路径未变时开销可忽略）
+      setInterval(applyPageSleepState, 800)
       const observer = new MutationObserver(() => {
         if (scheduled) return
         scheduled = true

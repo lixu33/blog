@@ -58,9 +58,3 @@ html[theme].dark .VPHome .text {
   }
 }
 
-/* 看板娘「正在休息」状态条：l2d 默认把它平移到 translateX(-100%) 完全滑出屏幕，
-   用户点不到。钉在左边缘保持可见，作为手动唤回的入口。 */
-body > div[style*="translateX(-100%)"] {
-  transform: translateY(50%) translateX(0) !important;
-  pointer-events: auto !important;   /* sleep() 会把舞台设成 none，状态条自身也得能点 */
-}
