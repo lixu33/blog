@@ -349,7 +349,7 @@ async function translateOne(file) {
       const parts = m[2].split(',').map((s) => s.trim()).filter(Boolean)
       const translated = []
       for (const part of parts) translated.push(await translateField(part))
-      lines[i] = m[1] + translated.join(',')
+      lines[i] = m[1] + yamlScalar(translated.join(','))
     }
     fm = lines.join('\n')
     fm += `\ntranslatedFrom: ${sourceHash}`
