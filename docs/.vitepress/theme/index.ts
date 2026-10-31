@@ -219,51 +219,6 @@ function applyPageSleepState() {
   }
 }
 
-/** 看板娘：列表页滚出首屏后淡出（文章页由 applyPageSleepState 处理休息态）。
- * 注意：l2d-widget 把舞台渲染成 body 直接子级的 fixed div（z-index 9999），
- * 不是 #l2d-widget 内部，所以按 z-index 找节点。 */
-let oml2dFadeBound = false
-let oml2dUpdate: (() => void) | null = null
-function bindOml2dFade() {
-  if (typeof window === 'undefined' || oml2dFadeBound) return
-  oml2dFadeBound = true
-  let last: string | null = null
-
-  const stageNodes = () =>
-    [...document.body.children].filter((el) => {
-      if (el.id === 'app' || el.tagName !== 'DIV') return false
-      const z = Number.parseInt(getComputedStyle(el as HTMLElement).zIndex, 10)
-      return Number.isFinite(z) && z >= 9990
-    }) as HTMLElement[]
-
-  const update = () => {
-    const nodes = stageNodes()
-    if (!nodes.length) return
-    // 文章页收起成休息态；列表页滚出首屏才淡出（这里只管淡出）
-    // 休息态下不淡出，否则状态条也几乎看不见，用户没入口把她叫回来
-    const sleeping = !!findOml2dStatusBar()
-    const scrolled = window.scrollY > window.innerHeight * 0.4
-    const next = scrolled && !sleeping ? '0.1' : '1'
-    if (last === next) return
-    last = next
-    for (const el of nodes) {
-      el.style.transition = 'opacity .4s ease'
-      el.style.opacity = next
-    }
-  }
-  oml2dUpdate = update
-  window.addEventListener('scroll', update, { passive: true })
-  window.addEventListener('resize', update, { passive: true })
-  // 看板娘是异步挂载的，首帧可能还没有舞台节点
-  const timer = setInterval(() => {
-    if (stageNodes().length) {
-      update()
-      clearInterval(timer)
-    }
-  }, 500)
-  update()
-}
-
 /** 给正文里的表格套一层可横向滚动的容器。
  * 手机窄屏下多列表格会被压成一字一行，套 wrapper 后可以左右滑动。 */
 function wrapTables() {
@@ -370,14 +325,12 @@ const Layout = defineComponent({
       const run = () => {
         scheduled = false
         wrapTables() // 表格横向滚动，中英都生效
-        oml2dUpdate?.() // 列表页滚出首屏淡出
         applyPageSleepState() // 文章页让看板娘休息，回列表页唤醒
         patchNotFound() // 404 页：按 URL 前缀决定语言，与 locale 无关
         if (localeIndex.value !== 'en') return
         patchHardcodedZhUi()
       }
       wrapTables()
-      bindOml2dFade()
       patchNotFound()
       patchHardcodedZhUi() // 走一次，处理首屏已渲染的部分
       const observer = new MutationObserver(() => {
