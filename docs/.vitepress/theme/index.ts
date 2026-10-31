@@ -217,18 +217,7 @@ function applyPageSleepState() {
   if (!isListPage()) {
     try {
       autoSleeping = true
-      // sleep 后 canvas 若仍在视口内，说明被入场动画/tips 唤回了，补两次
-      const sleepWithRetry = (n: number) => {
-        if (!widget || n > 2) return
-        widget.sleep()
-        setTimeout(() => {
-          const c = document.querySelector('canvas')
-          const r = c?.getBoundingClientRect()
-          const visible = r ? r.top < window.innerHeight - 20 && r.bottom > 0 : false
-          if (visible) sleepWithRetry(n + 1)
-        }, 1300)
-      }
-      sleepWithRetry(0)
+      widget.sleep()
     } catch {
       lastSleepPath = null // 实例没准备好，下次再判
     }
