@@ -233,9 +233,24 @@ function applyPageSleepState() {
       lastSleepPath = null // 实例没准备好，下次再判
     }
   } else if (autoSleeping) {
-    // 回列表页：不强行唤回（导航时 l2d 自己会重挂，硬点状态条反而会把
-    // 正在加载的实例点乱）。只清标志，让实例按自身状态走。
-    autoSleeping = false
+    // 回列表页：把「我们自动睡下的那一次」唤回。只有 autoSleeping 为真才点状态条，
+    // 用户手动休息的不动（l2d 没有程序化唤醒 API，唤回的唯一入口是条上自带的 click 回调）。
+    // 前置守卫缺一不可：
+    //   ① 文案必须是「正在休息」——「正在加载」阶段回调还没挂上，点了会把实例点乱；
+    //   ② transform 可见（translateX(0px)）才是真在休息——唤醒后文案仍留着，
+    //      只有 hide() 会把条滑出屏幕（translateX(-100%)），此刻点它无回调、无效但多余。
+    // 条还没就绪/还在加载 → 不动 lastSleepPath，让 800ms 轮询下一拍再判。
+    const bar = findOml2dStatusBar()
+    const txt = (bar?.textContent || '').trim()
+    if (bar && /正在休息/.test(txt) && bar.style.transform.includes('translateX(0px)')) {
+      bar.click()
+      autoSleeping = false
+    } else if (bar && /正在加载/.test(txt)) {
+      lastSleepPath = null
+    } else {
+      // 没有条（实例刚重挂）或条已滑出（用户在文章页自己点开过）——无需唤回
+      autoSleeping = false
+    }
   }
 }
 
