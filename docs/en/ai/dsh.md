@@ -1,7 +1,7 @@
 ---
 isTimeLine: true
-title: "DeepSeek Harness (dsh): A framework that turns the agent main loop into a plugin too"
-description: DeepSeek Harness (dsh) puts the tool registry, sessions, sandbox, and the agent main loop all in the plugin layer. This post covers Node version requirements, startup and configuration, profile precedence order, how to write a ToolDefinition, the three sandbox policies, and how to troubleshoot issues like configuration changes not taking effect and port parameter errors.
+title: "DeepSeek Harness (dsh): A Framework That Turns the Agent Main Loop into a Plugin"
+description: DeepSeek Harness (dsh) moves the tool registry, sessions, sandbox, and agent main loop into the plugin layer. This covers its Node version requirements, startup and configuration, profile overlay order, how to write ToolDefinition, the three sandbox levels, and how to troubleshoot configs that don't take effect and port parameter errors.
 date: 2026-11-11
 updated: 2026-11-11
 tags:
@@ -12,50 +12,74 @@ tags:
 categories:
 - Artificial Intelligence
 - AI
-- AI applications
+- AI Applications
 head:
 - - meta
   - name: keywords
-    content: DeepSeek Harness,dsh,AI Agent,Agent framework,Cordis,Plugin,profile,Sandbox,headless,ToolDefinition,DeepSeek
-translatedFrom: d790445f6775cdc9
+    content: DeepSeek Harness,dsh,AI Agent,Agent Framework,Cordis,Plugin,profile,Sandbox,headless,ToolDefinition,DeepSeek
+translatedFrom: 4a1ade6c0e7d073d
 ---
-# DeepSeek Harness (dsh): A Framework That Turns the Agent Main Loop into a Plugin Too
+# DeepSeek Harness (dsh): A framework that turns the agent main loop into a plugin
 
-Adding your own tool to a local agent often gets stuck at the same point: the tool registry and main loop live inside the framework, so changing them means forking or waiting for upstream to merge. DeepSeek Harness (command name `dsh`, open-sourced by DeepSeek AI under the MIT license) moves these into the configuration layer—tools, sessions, sandboxes, and model adapters are all plugins, and the agent main loop itself can be replaced.
+When you want to add your own tool to a local agent, you usually get stuck at the same point.
 
-The sections below follow the order you would get it running: version requirements, startup and configuration, how profiles stack, how to write plugins and tools, and a few easy pitfalls. The version is based on `@deepseek-ai/dsh` 0.2.2-rc.1 on npm; it is officially marked as a developer preview, and interfaces will have breaking changes.
+The tool registry and main loop are both inside the framework. You can't change them, so you can only fork the project or wait for an upstream merge.
 
-## What Part It Covers
+DeepSeek Harness (command name `dsh`, open-sourced by DeepSeek AI under the MIT license) moves these into the configuration layer.
 
-An agent equals a model plus a harness. dsh does not touch the model part; it handles the layer that lets the model read and write files, execute commands, be constrained by permissions, and leave traces of calls.
+Tools, sessions, sandboxes, and model adapters are all plugins, and the agent main loop itself can be swapped out.
 
-Compared with web chat, the difference is in where it operates: web chat can only accept attachments, and intermediate steps are not externally visible; dsh directly operates on the directory you specify, and every tool call and return is written to the session log for later review.
+The sections below follow the order you'll encounter during installation: version, startup, how configuration is layered, and how to write a plugin.
 
-The underlying layer is the Cordis plugin framework, with the design described in "A Programming Paradigm for Spatiotemporal Composability." The practical meaning of this architecture for users is just one thing: there is no privileged kernel, and all capability registrations are revocable side effects. When a plugin is unloaded, tools, event listeners, and timers are cleaned up together. Replacing an implementation therefore does not require a fork.
+The version referenced here is `@deepseek-ai/dsh` 0.2.2-rc.1 on npm. The official release is marked as a developer preview, and interfaces will change.
 
-## Check the Node Version Before Installing
+## What it actually governs
 
-The `engines.node` declared by `@deepseek-ai/dsh` on npm is `>=24.9.0`. Several introductory articles currently circulating say `^20.19 || >=22`; that is the requirement for older versions, and following it will fail at startup.
+An agent equals a model plus a harness. dsh does not touch the model half.
+
+What it governs is the layer that lets the model read and write files, run commands, be constrained by permissions, and leave an audit trail of calls.
+
+Compared with web-based chat, the difference is where it acts.
+
+Web chat can only accept attachments, and intermediate steps are invisible. dsh directly operates on the directory you specify, and every tool call and return is written to the session log for later inspection.
+
+The underlying framework is Cordis, a plugin framework. The author wrote a paper explaining the design.
+
+For me, only one point matters: there is no privileged kernel, and all capability registration is a revocable side effect.
+
+When a plugin is unloaded, its tools, listeners, and timers are cleaned up together.
+
+This is why you can swap implementations without forking.
+
+## First, check the Node version
+
+`@deepseek-ai/dsh` on npm requires `engines.node` to be `>=24.9.0`.
+
+Several introductory articles currently circulating say `^20.19 || >=22`, but that is the requirement for an older version. If you follow them, startup will fail.
 
 ```bash
 node -v            # 需要 v24.9.0 及以上
 npx @deepseek-ai/dsh web
 ```
 
-By default it listens on `http://127.0.0.1:3080`; starting it locally automatically opens the browser. Two common parameters:
+By default it listens on `http://127.0.0.1:3080`, and a local startup automatically opens the browser. Two commonly used arguments:
 
 ```bash
 npx @deepseek-ai/dsh web --no-open      # 只起服务，不开浏览器
 npx @deepseek-ai/dsh web --port 8080    # 换端口
 ```
 
-`--port` is a web app parameter and must be written after the launcher parameters. Put it before them, and the launcher treats it as its own option and reports an unknown parameter.
+`--port` is a web app argument and must be written after the launcher arguments. If you put it before them, the launcher will treat it as its own option and report an unknown argument.
 
-After the service is up, there are still two steps before you can work. In Settings, under "Model," enter the DeepSeek Open Platform API Key; saving takes effect immediately, with no restart. Then add the project directory from when you started `dsh` to the workspace and select it; before selecting, the session input box is grayed out. It also supports other providers and custom OpenAI-compatible endpoints.
+After the service starts, two more steps remain.
 
-## A Plugin Is Just an apply Function
+In Settings, under "Model", enter a DeepSeek Open Platform API Key. It takes effect on save, with no restart needed. Then add the project directory used when starting `dsh` to the workspace and select it. Until it is selected, the session input box is grayed out.
 
-The official minimal plugin has no other convention:
+It also connects to other providers and custom OpenAI-compatible endpoints.
+
+## A plugin is just an apply function
+
+The official minimal plugin has no other conventions:
 
 ```ts
 import type { Context } from '@deepseek-ai/cordis'
@@ -67,46 +91,65 @@ export function apply(ctx: Context) {
 }
 ```
 
-`apply(ctx)` is the lifecycle entry point, and capabilities are registered through `ctx`. Registered things follow the plugin: tools, event listeners, and timers are automatically cleaned up on unload, with no need to manually write `removeListener`; for external resources (network connections and the like), use `ctx.effect()` to hand over a disposer.
+`apply(ctx)` is the lifecycle entry point, and capabilities are registered from `ctx`.
 
-Common registration points are `ctx.tools` (tool registry), `ctx.sessions` (append-only event log), `ctx.sandbox` (sandbox and permissions), and `ctx.agentLoop` (main loop).
+Whatever you register follows the plugin.
 
-A replaceable main loop is the boundary between it and most harnesses. In other frameworks the main loop is fixed, and extensions can only hang outside the loop; here the loop itself is an implementation provided by the `agent-loop` package, and replacing it means replacing a set of execution semantics.
+Tools, event listeners, and timers are automatically cleared on unload, so you don't need to manually call `removeListener`. For external resources, such as network connections, use `ctx.effect()` to hand over a disposer.
 
-## Profile: Configuration Stacks Layer by Layer
+Remember these four common locations.
 
-`$DSH_HOME` defaults to `~/.dsh`, and each profile is a directory under `$DSH_HOME/profiles/<name>` that contains only two things: `package.json` records plugin dependencies and the effective order of `dsh.profile.bundles`, and `cordis.patch.yml` is your patch layer.
+Tools are on `ctx.tools`; session history is on `ctx.sessions`, which is an append-only event log; sandbox and permissions are on `ctx.sandbox`; and the main loop is on `ctx.agentLoop`.
 
-The final configuration stacks in this order; each later layer replaces the former by whole line value, with no deep merge:
+The fact that the main loop can be swapped is the dividing line between this and most harnesses.
 
-1. The patch of each bundle in `dsh.profile.bundles`
+In other frameworks the loop is fixed, and extensions can only hang outside the loop. Here the loop itself is an implementation from the `agent-loop` package, so replacing it means replacing the execution semantics.
+
+## Configuration is layered on top
+
+`$DSH_HOME` defaults to `~/.dsh`.
+
+Each profile is a directory under `$DSH_HOME/profiles/<name>`, and it contains only two things.
+
+`package.json` records plugin dependencies and the activation order of `dsh.profile.bundles`; `cordis.patch.yml` is your patch layer.
+
+The final configuration is stacked in this order. Later entries replace earlier ones line by line with whole values, with no deep merge:
+
+1. The patch from each bundle in `dsh.profile.bundles`
 2. The profile's own `cordis.patch.yml`
 3. The home-level `$DSH_HOME/cordis.patch.yml`, shared by all profiles
 4. Each `--patch <file>` on the command line
 
-If configuration changes do not take effect, first check the final stacked tree:
+If a configuration change doesn't take effect, first inspect the resulting tree:
 
 ```bash
 dsh --profile web --dump-config                   # 含自己所有补丁层
 dsh --profile web --dump-default-config           # 只含内置 bundle 层
 ```
 
-The output marks which file each line comes from and which overlay modified it; patch targets that do not match are written to stderr. In addition, configuration files hot reload only when `dsh-hmr` is enabled; otherwise, restart after changes.
+The output marks which file each line comes from and which overlay changed it. Patch targets that don't match anything are written to stderr.
 
-## Four Run Modes
+One more thing that's easy to forget: configuration files are hot-reloaded only when `dsh-hmr` is enabled; otherwise you must restart after changing them.
 
-| Form | Command | Where It Is Used |
-|---|---|---|
-| Web UI | `dsh web` | Graphical interface, with tool calls and results expanded step by step |
-| One-off task | `dsh --profile headless "run tests"` | Exits once the result is produced, suitable for scripts and CI |
-| SDK | `dsh --profile sdk` | JSON-RPC over stdio, embedded into your own program |
-| ACP | `dsh --profile acp` | Connected to by editors and other automation clients |
+## Four ways to run it
 
-headless prints only the final answer to stdout, with reasoning deltas going to stderr; exit code `0` means completion, non-zero means failure; no task text counts as a usage error. It does not listen on a port and can be put directly into a pipeline.
+The most intuitive is the Web UI. `dsh web` starts the service, and tool calls and results expand step by step in the interface.
 
-## Write a Tool
+For scripts and CI, use headless mode: `dsh --profile headless "run tests"`.
 
-The tool type is `ToolDefinition`: `name`, `description`, and `parameters` are shown to the model, `output` declares the output JSON Schema, and `execute` does the work. When assembling a request, the registry takes values by whitelist; host fields such as `output`, `execute`, and `timeoutMs` do not enter the request.
+It prints only the final answer to stdout, while reasoning deltas go to stderr. Exit code `0` means completion, and non-zero means failure. It also doesn't listen on a port.
+
+To embed it in your own program, use `dsh --profile sdk`, which provides JSON-RPC over stdio.
+
+Editors and other automation clients generally connect via `--profile acp`.
+
+## Add your own tool
+
+The tool type is `ToolDefinition`.
+
+`name`, `description`, and `parameters` are shown to the model; `output` declares the JSON Schema of the output; and `execute` does the work.
+
+The registry takes values by whitelist when assembling requests. Host fields such as `output`, `execute`, and `timeoutMs` do not enter the request, so you can rest assured on this point.
 
 ```ts
 export const inject = ['tools']
@@ -136,31 +179,39 @@ export function apply(ctx: Context) {
 }
 ```
 
-`inject: ['tools']` declares the dependency; Cordis waits until the `tools` service is ready before executing `apply`, so there is no need to null-check yourself.
+`inject: ['tools']` declares a dependency. Cordis waits until the `tools` service is ready before running `apply`, so you don't need your own null checks.
 
-## Security Boundary
+## Only three permission levels
 
-Subprocess execution is constrained by a file effect policy, with three levels: `read-only` allows only reads, `workspace-write` allows writes only to the session workspace, and `danger-full-access` imposes no file restrictions.
+Subprocess execution is constrained by a file effect policy: `read-only` can only read, `workspace-write` can only write to the session workspace, and `danger-full-access` applies no file restrictions.
 
-A single call rejected by policy can be retried via "one-time elevation approved by the user"; approval is effective only for that call. The official security notes are very direct: sandboxing, approval, and permission controls reduce risk, but do not guarantee isolation and cannot prevent harm; running in a disposable VM or container is recommended, with only the necessary minimum permissions granted.
+A single call denied by the policy can be retried via a one-time user-approved elevation. The approval applies only to that call.
 
-## A Few Places That Trip People Up
+The official safety notes are direct: sandboxes, approvals, and permission controls reduce risk, but they do not guarantee isolation and cannot prevent damage.
 
-Node version mismatch ranks first—that is the `>=24.9.0` requirement above. A grayed-out session input box means no workspace has been selected.
+It is recommended to run it in a disposable virtual machine or container and grant only the minimum necessary permissions.
 
-If configuration changes have no effect, it is most likely that HMR is not enabled; restart first. If it is still wrong, use `--dump-config` to see the overlay result. If you changed only one configuration item and other items in the same block were lost, that is caused by the patch replacing the entire `config` by whole line value; you need to write that line in full.
+## A few places where people get stuck
 
-If startup fails and it only says that some plugin did not start, check `$DSH_HOME/logs/startup-<timestamp>.log`, which lists the failed plugins and the original stack. If `--port` reports an unknown parameter, the parameter is in the wrong position; write it as `dsh --profile web --port 8080`.
+Node version mismatch ranks first, as mentioned earlier: `>=24.9.0`. If the session input box is gray, no workspace has been selected.
 
-## Related Reading
+If configuration changes have no effect, it is most likely because HMR isn't enabled; restart first. If it's still wrong, use `--dump-config` to inspect the merged result.
 
-- [AI Agent Skills Introduction: From Concept to Runnable Skill Package](/en/ai/agentSkills): dsh skills are also plugins; first understand the `SKILL.md` loading mechanism to get started more easily
-- [Hermes Agent: A Self-Hostable Open-Source AI Agent](/en/ai/hermesAgent): another approach to a self-hosted harness, with a persistent gateway and skills accumulated through tasks
-- [OpenClaw Open-Source AI Assistant Deployment Guide](/en/ai/openclaw): a deployment form that connects the agent to messaging platforms
+If you changed only one configuration item but other items in the same block disappeared, that is caused by patches replacing the entire `config` line by line with whole values. You need to write the full line.
+
+If startup fails and only says that a plugin didn't start, check `$DSH_HOME/logs/startup-<timestamp>.log`. It lists the failed plugins and the original stack traces.
+
+If `--port` reports an unknown argument, it is in the wrong position. Write it as `dsh --profile web --port 8080`.
+
+## Related reading
+
+- [AI Agent Skills intro: from concepts to runnable skill packages](/en/ai/agentSkills): dsh skills are also plugins, so it's easier to get started after understanding the `SKILL.md` loading mechanism
+- [Hermes Agent: a self-hostable open-source AI agent](/en/ai/hermesAgent): another self-hosted harness, with a resident gateway and skills that accumulate through tasks
+- [OpenClaw open-source AI assistant deployment guide](/en/ai/openclaw): a deployment form for connecting an agent to messaging platforms
 
 ## References
 
 - Repository: <https://github.com/deepseek-ai/deepseek-harness>
-- Documentation: <https://deepseek-harness.github.io/deepseek-harness/>
-- Security notes: `SAFETY.zh.md` in the repository root
+- Docs: <https://deepseek-harness.github.io/deepseek-harness/>
+- Safety notes: `SAFETY.zh.md` in the repository root
 - Cordis design paper: <https://arxiv.org/abs/2608.25512>
