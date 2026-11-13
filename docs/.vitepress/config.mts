@@ -119,6 +119,9 @@ export default defineConfig({
         }),
   },
   cleanUrls: true,
+  // 带尾斜杠的入口会让主题的路由匹配失效（文章元数据取不到，日期渲染成 NaN），
+  // 交给 Vercel 308 重定向到规范地址，避免非规范 URL 被索引
+  trailingSlash: false,
   base,
   lang: 'zh-CN',
   title: siteTitle,
