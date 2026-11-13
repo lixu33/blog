@@ -1,7 +1,7 @@
 ---
 isTimeLine: true
-title: "Getting Started with DeepSeek Harness (dsh): An Agent Framework Where Everything Is a Plugin"
-description: DeepSeek Harness (dsh) makes the agent main loop, tools, sessions, and sandbox all plugins. It covers Node version requirements, startup methods, profile configuration precedence, how to write ToolDefinition, the three sandbox policies, and troubleshooting order for issues such as configurations not taking effect and port parameter errors.
+title: "DeepSeek Harness (dsh): A framework that turns the agent main loop into a plugin too"
+description: DeepSeek Harness (dsh) puts the tool registry, sessions, sandbox, and the agent main loop all in the plugin layer. This post covers Node version requirements, startup and configuration, profile precedence order, how to write a ToolDefinition, the three sandbox policies, and how to troubleshoot issues like configuration changes not taking effect and port parameter errors.
 date: 2026-11-11
 updated: 2026-11-11
 tags:
@@ -10,66 +10,52 @@ tags:
 - AI
 - LLM
 categories:
+- Artificial Intelligence
 - AI
-- AI
-- AI Applications
+- AI applications
 head:
 - - meta
   - name: keywords
-    content: DeepSeek Harness,dsh,AI Agent,Agent Framework,Cordis,Plugin,profile,Sandbox,headless,ToolDefinition,DeepSeek
-translatedFrom: f4c1087c63ce33df
+    content: DeepSeek Harness,dsh,AI Agent,Agent framework,Cordis,Plugin,profile,Sandbox,headless,ToolDefinition,DeepSeek
+translatedFrom: d790445f6775cdc9
 ---
-# Getting Started with DeepSeek Harness (dsh): An Agent Framework Where Everything Is a Plugin
+# DeepSeek Harness (dsh): A Framework That Turns the Agent Main Loop into a Plugin Too
 
-After using a local agent for a while, change requests usually land in an awkward spot: you want to add a custom tool for the model, swap out the backend that runs commands, or change how sessions are stored—but these live inside the framework, so you can either modify the source or wait for an upstream merge. DeepSeek Harness (command name `dsh`, open-sourced by DeepSeek AI under the MIT license) moves all of this into the configuration layer: model adapters, tool registry, session logs, sandbox policies—even the agent main loop itself is a plugin.
+Adding your own tool to a local agent often gets stuck at the same point: the tool registry and main loop live inside the framework, so changing them means forking or waiting for upstream to merge. DeepSeek Harness (command name `dsh`, open-sourced by DeepSeek AI under the MIT license) moves these into the configuration layer—tools, sessions, sandboxes, and model adapters are all plugins, and the agent main loop itself can be replaced.
 
-This article follows the structure: what shape it takes → how to run it → how profiles stack → how to write a plugin → where you'll hit pitfalls. The version is based on `@deepseek-ai/dsh` 0.2.2-rc.1 on npm; the official release explicitly labels it a developer preview, and interfaces will have breaking changes.
+The sections below follow the order you would get it running: version requirements, startup and configuration, how profiles stack, how to write plugins and tools, and a few easy pitfalls. The version is based on `@deepseek-ai/dsh` 0.2.2-rc.1 on npm; it is officially marked as a developer preview, and interfaces will have breaking changes.
 
-## Remember three coordinates first
+## What Part It Covers
 
-1. **Agent = model + harness**, dsh only handles the latter half: it does not train models; it is responsible for enabling the model to read and write files, execute commands, be constrained, and be recorded
-2. **Configuration is a plugin tree stacked in order**, and `--dump-config` can print the final effective tree in full
-3. **Node version requirement is `>= 24.9.0`**, higher than the 20/22 written in many tutorials; copying old articles will fail at startup
+An agent equals a model plus a harness. dsh does not touch the model part; it handles the layer that lets the model read and write files, execute commands, be constrained by permissions, and leave traces of calls.
 
-## Differences from web chat
+Compared with web chat, the difference is in where it operates: web chat can only accept attachments, and intermediate steps are not externally visible; dsh directly operates on the directory you specify, and every tool call and return is written to the session log for later review.
 
-| Aspect | Web chat | dsh |
-|---|---|---|
-| File access | Can only upload attachments | Directly read and write specified workspace directories |
-| Command execution | Not supported | Shell and persistent terminal, constrained by sandbox policy |
-| Process visibility | Intermediate steps are a black box | Tool calls and results are written to disk step by step and can be inspected |
-| Extension method | Fixed functionality | Add plugins, main loop replaceable |
+The underlying layer is the Cordis plugin framework, with the design described in "A Programming Paradigm for Spatiotemporal Composability." The practical meaning of this architecture for users is just one thing: there is no privileged kernel, and all capability registrations are revocable side effects. When a plugin is unloaded, tools, event listeners, and timers are cleaned up together. Replacing an implementation therefore does not require a fork.
 
-Underneath is the Cordis plugin framework; the design is described in the paper "A Programming Paradigm for Spatiotemporal Composability." Its key property is that there is no privileged kernel: every capability registration is a reversible side effect, and uninstalling a plugin undoes it. This is also the prerequisite for "swapping implementations without forking."
+## Check the Node Version Before Installing
 
-## Startup: get past the Node version hurdle first
-
-`@deepseek-ai/dsh` declares `engines.node` as `>=24.9.0` on npm. Several introductory articles online say `^20.19 || >=22`, which was the requirement for older versions; following that now will get you stuck immediately.
+The `engines.node` declared by `@deepseek-ai/dsh` on npm is `>=24.9.0`. Several introductory articles currently circulating say `^20.19 || >=22`; that is the requirement for older versions, and following it will fail at startup.
 
 ```bash
 node -v            # 需要 v24.9.0 及以上
 npx @deepseek-ai/dsh web
 ```
 
-By default it listens on `http://127.0.0.1:3080`; when started locally it automatically opens the browser. Common parameters:
+By default it listens on `http://127.0.0.1:3080`; starting it locally automatically opens the browser. Two common parameters:
 
 ```bash
-npx @deepseek-ai/dsh web --no-open      # 只起服务不开浏览器
+npx @deepseek-ai/dsh web --no-open      # 只起服务，不开浏览器
 npx @deepseek-ai/dsh web --port 8080    # 换端口
 ```
 
-Parameters like `--port` belong to the web app and must be written after the launcher parameters (that is, after `dsh --profile web`); if written before, the launcher treats them as its own parameters and reports an unknown option.
+`--port` is a web app parameter and must be written after the launcher parameters. Put it before them, and the launcher treats it as its own option and reports an unknown parameter.
 
-After the Web UI is up, two more steps are needed before you can work:
+After the service is up, there are still two steps before you can work. In Settings, under "Model," enter the DeepSeek Open Platform API Key; saving takes effect immediately, with no restart. Then add the project directory from when you started `dsh` to the workspace and select it; before selecting, the session input box is grayed out. It also supports other providers and custom OpenAI-compatible endpoints.
 
-1. **Settings → Model**: enter the API Key for the DeepSeek open platform; it takes effect immediately after saving, with no need to restart the service
-2. **Select workspace**: add and select the project directory from when you started `dsh`; before selecting one, the session input box is locked
+## A Plugin Is Just an apply Function
 
-It is also compatible with other providers and custom OpenAI-compatible endpoints; just fill in the corresponding base URL.
-
-## Everything is a plugin: a plugin is just an `apply` function
-
-The official minimal plugin looks like this, with no other conventions:
+The official minimal plugin has no other convention:
 
 ```ts
 import type { Context } from '@deepseek-ai/cordis'
@@ -81,56 +67,46 @@ export function apply(ctx: Context) {
 }
 ```
 
-`apply(ctx)` is the lifecycle entry point, and all capabilities are registered through `ctx`. Registered things follow the plugin: tools, event listeners, and timers are automatically cleaned up when the plugin is uninstalled, with no need to manually write `removeListener`; for external resources (such as network connections), use `ctx.effect()` to hand over their disposer.
+`apply(ctx)` is the lifecycle entry point, and capabilities are registered through `ctx`. Registered things follow the plugin: tools, event listeners, and timers are automatically cleaned up on unload, with no need to manually write `removeListener`; for external resources (network connections and the like), use `ctx.effect()` to hand over a disposer.
 
-Common registration points map to specific packages:
+Common registration points are `ctx.tools` (tool registry), `ctx.sessions` (append-only event log), `ctx.sandbox` (sandbox and permissions), and `ctx.agentLoop` (main loop).
 
-| What to add | Where it goes |
-|---|---|
-| Model-callable tools | `ctx.tools` (tool registry + execution pipeline) |
-| Session history | `ctx.sessions` (append-only event log) |
-| Sandbox and permissions | `ctx.sandbox` (policy service) |
-| Main loop | `ctx.agentLoop` (default implementation, can be replaced wholesale) |
+A replaceable main loop is the boundary between it and most harnesses. In other frameworks the main loop is fixed, and extensions can only hang outside the loop; here the loop itself is an implementation provided by the `agent-loop` package, and replacing it means replacing a set of execution semantics.
 
-The replaceable main loop is the dividing line between this and most harnesses: in other frameworks the main loop is fixed, and extensions can only hang outside the loop; here the loop is also an implementation provided by the `agent-loop` package, and replacing it is equivalent to replacing a set of execution semantics.
+## Profile: Configuration Stacks Layer by Layer
 
-## Profile: configuration is a tree stacked in order
+`$DSH_HOME` defaults to `~/.dsh`, and each profile is a directory under `$DSH_HOME/profiles/<name>` that contains only two things: `package.json` records plugin dependencies and the effective order of `dsh.profile.bundles`, and `cordis.patch.yml` is your patch layer.
 
-`$DSH_HOME` defaults to `~/.dsh`; each profile is a directory under `$DSH_HOME/profiles/<name>` containing only two things:
-
-- `package.json`: plugin dependencies, plus `dsh.profile.bundles` declaring the effective order of bundles
-- `cordis.patch.yml`: your own patch layer
-
-The final configuration is stacked in this order; **the latter replaces the former by whole value per line, with no deep merge**:
+The final configuration stacks in this order; each later layer replaces the former by whole line value, with no deep merge:
 
 1. The patch of each bundle in `dsh.profile.bundles`
 2. The profile's own `cordis.patch.yml`
-3. The home-level `$DSH_HOME/cordis.patch.yml` (machine preferences shared by all profiles)
+3. The home-level `$DSH_HOME/cordis.patch.yml`, shared by all profiles
 4. Each `--patch <file>` on the command line
 
-Printing the tree is the fastest way to troubleshoot configuration issues:
+If configuration changes do not take effect, first check the final stacked tree:
 
 ```bash
-dsh --profile web --dump-config                   # 含你自己所有补丁层
+dsh --profile web --dump-config                   # 含自己所有补丁层
 dsh --profile web --dump-default-config           # 只含内置 bundle 层
 ```
 
-Each line in the output indicates which file it comes from and which overlay modified it; patch targets that are not matched are printed to stderr. Configuration files are hot-reloaded only when `dsh-hmr` is enabled; otherwise, restart after changes.
+The output marks which file each line comes from and which overlay modified it; patch targets that do not match are written to stderr. In addition, configuration files hot reload only when `dsh-hmr` is enabled; otherwise, restart after changes.
 
-## Four run modes
+## Four Run Modes
 
-| Mode | Command | Use case |
+| Form | Command | Where It Is Used |
 |---|---|---|
-| Web UI | `dsh web` | Graphical interface, view tool calls step by step |
-| One-shot task | `dsh --profile headless "run tests"` | Exits after producing a result, suitable for scripts and CI |
-| SDK | `dsh --profile sdk` | JSON-RPC over stdio, embed into your own program |
-| ACP | `dsh --profile acp` | Access from editors and other automation clients |
+| Web UI | `dsh web` | Graphical interface, with tool calls and results expanded step by step |
+| One-off task | `dsh --profile headless "run tests"` | Exits once the result is produced, suitable for scripts and CI |
+| SDK | `dsh --profile sdk` | JSON-RPC over stdio, embedded into your own program |
+| ACP | `dsh --profile acp` | Connected to by editors and other automation clients |
 
-`headless` mode prints only the final answer to stdout, reasoning deltas go to stderr, exit code `0` means completion and non-zero means failure; omitting the task text counts as a usage error. It does not listen on any port, making it suitable for pipelines.
+headless prints only the final answer to stdout, with reasoning deltas going to stderr; exit code `0` means completion, non-zero means failure; no task text counts as a usage error. It does not listen on a port and can be put directly into a pipeline.
 
-## Writing a tool
+## Write a Tool
 
-The tool definition type is `ToolDefinition`: `name` / `description` / `parameters` are for the model to see, `output` declares the output JSON Schema, and `execute` does the work. When assembling model requests, the registry takes values by whitelist; host fields such as `output`, `execute`, and `timeoutMs` will not leak into the request.
+The tool type is `ToolDefinition`: `name`, `description`, and `parameters` are shown to the model, `output` declares the output JSON Schema, and `execute` does the work. When assembling a request, the registry takes values by whitelist; host fields such as `output`, `execute`, and `timeoutMs` do not enter the request.
 
 ```ts
 export const inject = ['tools']
@@ -160,34 +136,27 @@ export function apply(ctx: Context) {
 }
 ```
 
-`inject: ['tools']` declares a dependency; Cordis waits until the `tools` service is ready before executing `apply`, so you don't need to check for null yourself.
+`inject: ['tools']` declares the dependency; Cordis waits until the `tools` service is ready before executing `apply`, so there is no need to null-check yourself.
 
-## Security boundary
+## Security Boundary
 
-Subprocess execution is constrained by a set of file effect policies, with three levels:
+Subprocess execution is constrained by a file effect policy, with three levels: `read-only` allows only reads, `workspace-write` allows writes only to the session workspace, and `danger-full-access` imposes no file restrictions.
 
-- `read-only`: commands can only read
-- `workspace-write`: can only write within the session workspace
-- `danger-full-access`: no file restrictions
+A single call rejected by policy can be retried via "one-time elevation approved by the user"; approval is effective only for that call. The official security notes are very direct: sandboxing, approval, and permission controls reduce risk, but do not guarantee isolation and cannot prevent harm; running in a disposable VM or container is recommended, with only the necessary minimum permissions granted.
 
-A call rejected by the policy can be retried via "one-time privilege escalation approved by the user"; approval applies only to that current call. The official security note puts it plainly: sandboxing, approval, and permission controls reduce risk, but they do not guarantee isolation and cannot prevent damage; it is recommended to run in a disposable VM or container and grant only the minimum necessary permissions.
+## A Few Places That Trip People Up
 
-## Common Troubleshooting Reference
+Node version mismatch ranks first—that is the `>=24.9.0` requirement above. A grayed-out session input box means no workspace has been selected.
 
-| Symptom | Cause and resolution |
-|---|---|
-| `npx` startup reports a Node version mismatch | The engines field requires `>=24.9.0`; the 20/22 versions in the tutorial are outdated |
-| Session input box is greyed out and unavailable | No workspace selected |
-| Config changes have no effect | HMR is not enabled, so a restart is required; then use `--dump-config` to confirm the merged result |
-| Startup fails, saying only that a plugin did not start | Check `$DSH_HOME/logs/startup-<时间戳>.log`, which lists the failed plugins and original stack traces |
-| `--port` reports an unknown argument | launcher arguments must come first; write it as `dsh --profile web --port 8080` |
-| Only one config item is changed, but the other items in the same block are lost | The patch replaces the entire `config` with the full value per line, without deep merging, so the whole line must be written out |
+If configuration changes have no effect, it is most likely that HMR is not enabled; restart first. If it is still wrong, use `--dump-config` to see the overlay result. If you changed only one configuration item and other items in the same block were lost, that is caused by the patch replacing the entire `config` by whole line value; you need to write that line in full.
+
+If startup fails and it only says that some plugin did not start, check `$DSH_HOME/logs/startup-<timestamp>.log`, which lists the failed plugins and the original stack. If `--port` reports an unknown parameter, the parameter is in the wrong position; write it as `dsh --profile web --port 8080`.
 
 ## Related Reading
 
-- [Getting Started with AI Agent Skills: From Concepts to Runnable Skill Packages](/en/ai/agentSkills): dsh skills are also plugins; understanding the `SKILL.md` loading mechanism first makes it easier to get started
-- [Hermes Agent: A Self-Hostable Open-Source AI Agent](/en/ai/hermesAgent): the trade-offs of another self-hosted harness, with a resident gateway and skill accumulation
-- [OpenClaw Open-Source AI Assistant Deployment Guide](/en/ai/openclaw): deployment patterns for connecting agents to messaging platforms
+- [AI Agent Skills Introduction: From Concept to Runnable Skill Package](/en/ai/agentSkills): dsh skills are also plugins; first understand the `SKILL.md` loading mechanism to get started more easily
+- [Hermes Agent: A Self-Hostable Open-Source AI Agent](/en/ai/hermesAgent): another approach to a self-hosted harness, with a persistent gateway and skills accumulated through tasks
+- [OpenClaw Open-Source AI Assistant Deployment Guide](/en/ai/openclaw): a deployment form that connects the agent to messaging platforms
 
 ## References
 
