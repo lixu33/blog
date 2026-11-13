@@ -12,8 +12,8 @@ importers:
         specifier: ^2.3.2
         version: 2.3.2(vue@3.5.44(typescript@5.5.4))
       '@sugarat/theme':
-        specifier: ^0.5.33
-        version: 0.5.33(@element-plus/icons-vue@2.3.2(vue@3.5.44(typescript@5.5.4)))(element-plus@2.14.7(vue@3.5.44(typescript@5.5.4)))(pagefind@1.6.0)(vite@5.4.18(sass@1.107.0))(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))(vue@3.5.44(typescript@5.5.4))
+        specifier: 0.5.32
+        version: 0.5.32(@element-plus/icons-vue@2.3.2(vue@3.5.44(typescript@5.5.4)))(element-plus@2.14.7(vue@3.5.44(typescript@5.5.4)))(pagefind@1.5.2)(vite@5.4.18(sass@1.107.0))(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))(vue@3.5.44(typescript@5.5.4))
       element-plus:
         specifier: ^2.14.7
         version: 2.14.7(vue@3.5.44(typescript@5.5.4))
@@ -21,11 +21,11 @@ importers:
         specifier: 0.1.1
         version: 0.1.1
       pagefind:
-        specifier: ^1.6.0
-        version: 1.6.0
+        specifier: 1.5.2
+        version: 1.5.2
       vitepress-plugin-pagefind:
-        specifier: ^0.4.27
-        version: 0.4.27(pagefind@1.6.0)(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))(vue@3.5.44(typescript@5.5.4))
+        specifier: 0.4.26
+        version: 0.4.26(pagefind@1.5.2)(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))(vue@3.5.44(typescript@5.5.4))
       vue:
         specifier: ^3.5.44
         version: 3.5.44(typescript@5.5.4)
@@ -117,35 +117,18 @@ packages:
   '@antfu/install-pkg@1.1.0':
     resolution: {integrity: sha512-MGQsmw10ZyI+EJo45CdSER4zEb+p31LpDAFp2Z3gkSd1yqVZGi0Ebx++YTEMonJy4oChEMLsxZ64j8FH6sSqtQ==}
 
-  '@babel/helper-string-parser@7.24.8':
-    resolution: {integrity: sha512-pO9KhhRcuUyGnJWwyEgnRJTSIZHiT+vMD0kPeD+so0l7mxkMT19g3pjY9GTnHySck/hDzq+dtW/4VgnMkippsQ==}
-    engines: {node: '>=6.9.0'}
-
   '@babel/helper-string-parser@7.29.11':
     resolution: {integrity: sha512-snZbO7MEDOof+hvNa97EjEY7qD7h2kwvQr5AJC3ZhQudKW5dnej6k3kP9NQV88hJwaS8vDqRLFo9rivLEhle2g==}
-    engines: {node: '>=6.9.0'}
-
-  '@babel/helper-validator-identifier@7.24.7':
-    resolution: {integrity: sha512-rR+PBcQ1SMQDDyF6X0wxtG8QyLCgUB0eRAGguqRLfkCA87l7yAP7ehq8SNj96OOGTO8OBV70KhuFYcIkHXOg0w==}
     engines: {node: '>=6.9.0'}
 
   '@babel/helper-validator-identifier@7.29.7':
     resolution: {integrity: sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg==}
     engines: {node: '>=6.9.0'}
 
-  '@babel/parser@7.25.3':
-    resolution: {integrity: sha512-iLTJKDbJ4hMvFPgQwwsVoxtHyWpKKPBrxkANrSYewDPaPpT5py5yeVkgPIJ7XYXhndxJpaA3PyALSXQ7u8e/Dw==}
-    engines: {node: '>=6.0.0'}
-    hasBin: true
-
   '@babel/parser@7.29.12':
     resolution: {integrity: sha512-WJ7JBp/Q4+z/ImydtI7jS6NVco5++632ExBemSX+Ysb+G1lCwQ5BVo3SY+jGGOcZXI4ZccbZSUSJLNBW6eEpJg==}
     engines: {node: '>=6.0.0'}
     hasBin: true
-
-  '@babel/types@7.25.2':
-    resolution: {integrity: sha512-YTnYtra7W9e6/oAZEHj0bJehPRUlLH9/fbpT5LfB0NhQXyALCRkRs3zH9v07IYhkgpqX6Z78FnuccZr/l4Fs4Q==}
-    engines: {node: '>=6.9.0'}
 
   '@babel/types@7.29.11':
     resolution: {integrity: sha512-WCsemW40Cpc6gouC1SrY6PBaZ+oLRlEVY9XBvZBI7il/HyUrb2nJ505wE1MHEFyDZNnrWDEuy4jL50WVHfTTSQ==}
@@ -509,9 +492,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@jridgewell/sourcemap-codec@1.5.0':
-    resolution: {integrity: sha512-gv3ZRaISU3fjPAgNsriBRqGWQL6quFx04YMPW/zD8XMLsU32mhCCbfbO6KZFLjvYpCZ8zyDEgqsgf+PwPaM7GQ==}
-
   '@jridgewell/sourcemap-codec@1.6.0':
     resolution: {integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==}
 
@@ -524,38 +504,38 @@ packages:
   '@mermaid-js/mermaid-mindmap@9.3.0':
     resolution: {integrity: sha512-IhtYSVBBRYviH1Ehu8gk69pMDF8DSRqXBRDMWrEfHoaMruHeaP2DXA3PBnuwsMaCdPQhlUUcy/7DBLAEIXvCAw==}
 
-  '@pagefind/darwin-arm64@1.6.0':
-    resolution: {integrity: sha512-611gl64aqN12UcMyKPtZ8+vRWBKlJFSh2JgO8uScxa1Eyjo1dXz9r4wZuRno0yCUE/KN0FauEoKZ3KEwUYHCCg==}
+  '@pagefind/darwin-arm64@1.5.2':
+    resolution: {integrity: sha512-MXpI+7HsAdPkvJ0gk9xj9g541BCqBZOBbdwj9g6lB5LCj6kSV6nqDSjzcAJwvOsfu0fjwvC8hQU+ecfhp+MpiQ==}
     cpu: [arm64]
     os: [darwin]
 
-  '@pagefind/darwin-x64@1.6.0':
-    resolution: {integrity: sha512-rd3ZbtuxyYqjASKZAPuIV7eeQQHJ7VYpoNKKG8CvglaD3g30eT5Nb7XGNLYwVReBsCccpkURwrGwWjSwr8nyQQ==}
+  '@pagefind/darwin-x64@1.5.2':
+    resolution: {integrity: sha512-IojxFWMEJe0RQ7PQ3KXQsPIImNsbpPYpoZ+QUDrL8fAl/O27IX+LVLs74/UzEZy5uA2LD8Nz1AiwKr72vrkZQw==}
     cpu: [x64]
     os: [darwin]
 
-  '@pagefind/freebsd-x64@1.6.0':
-    resolution: {integrity: sha512-d+sXqsaThszmPWGVDSRKqIz9GpZcj/bAksNZfg19asSxU0ogNPOMND4kV4giQvOjPFMsltUFf6hQJfoHQ6+hSQ==}
+  '@pagefind/freebsd-x64@1.5.2':
+    resolution: {integrity: sha512-7EVzo9+0w+2cbe671BtMj10UlNo83I+HrLVLfRxO731svHRJKUfJ/mo05gU14pe9PCfpKNQT8FS3Xc/oDN6pOA==}
     cpu: [x64]
     os: [freebsd]
 
-  '@pagefind/linux-arm64@1.6.0':
-    resolution: {integrity: sha512-SLB2I+XqCZma8NvIGIH8nyKblgKIxw5PmqsVtofWOKxNHhEtOEsddbqU+hsrNcT3EV0faM6UmKDHVIxcPYq29w==}
+  '@pagefind/linux-arm64@1.5.2':
+    resolution: {integrity: sha512-Ovt9+K35sqzn8H3ZMXGwls4TD/wMJuvRtShHIsmUQREmaxjrDEX7gHckRCrwYJ4XE1H1p6HkLz3wukrAnsfXQw==}
     cpu: [arm64]
     os: [linux]
 
-  '@pagefind/linux-x64@1.6.0':
-    resolution: {integrity: sha512-IbMSx/+Vr/Xk0TTBlLkjgK+rvnbOXGmmb2/MKxQu99AR5DsqQoV3NKEA9PQz2tAhuCZjeD5xJBp4w5N5DHIC7Q==}
+  '@pagefind/linux-x64@1.5.2':
+    resolution: {integrity: sha512-V+tFqHKXhQKq/WqPBD67AFy7scn1/aZID00ws4fSDd+1daSi5UHR9VVlRrOUYKxn3VuFQYRD7lYXdZK1WED1YA==}
     cpu: [x64]
     os: [linux]
 
-  '@pagefind/windows-arm64@1.6.0':
-    resolution: {integrity: sha512-wUrniW3REr7VWJHz6xE6F/p/AQgHDFpGZiY9sbWT71KfEijDE5Jnc37V8zc7cilV9h/QkwJGXoEP2+ZLwDmhtw==}
+  '@pagefind/windows-arm64@1.5.2':
+    resolution: {integrity: sha512-hN9Nh90fNW61nNRCW9ZyQrAj/mD0eRvmJ8NlTUzkbuW8kIzGJUi3cxjFkEcMZ5h/8FsKWD/VcouZl4yo1F7B6g==}
     cpu: [arm64]
     os: [win32]
 
-  '@pagefind/windows-x64@1.6.0':
-    resolution: {integrity: sha512-cUA2+yXfbymdJllyMjY5YTBwuOgh0/H53Pn5fYKjDnDjk154Ft4U5RVj3TenWySPL/jG6zJfARUWSlyUyXHlZw==}
+  '@pagefind/windows-x64@1.5.2':
+    resolution: {integrity: sha512-Fa2Iyw7kaDRzGMfNYNUXNW2zbL5FQVDgSOcbDHdzBrDEdpqOqg8TcZ68F22ol6NJ9IGzvUdmeyZypLW5dyhqsg==}
     cpu: [x64]
     os: [win32]
 
@@ -757,8 +737,8 @@ packages:
   '@sugarat/theme-shared@0.1.0':
     resolution: {integrity: sha512-UKAFNOkj5C6kK4NDRMWF7m5+QoHC7e/h1sQwrXy8Jjn/iK/GwACegL4NOKxDdcSUlGRgRD5uUwuTHM6xZEzO9A==}
 
-  '@sugarat/theme@0.5.33':
-    resolution: {integrity: sha512-FG+DFjcaN5WvQvMQmGk9hHkp+3XaTmDVdxOzRyvJJdbg4lVdOIYo8cmnxiMMWThgrLPb52grt49AA0oIK45BxQ==}
+  '@sugarat/theme@0.5.32':
+    resolution: {integrity: sha512-Ip2tZ0PA922u9ymyhQAQUd3lUovSQboFsCdketQR57xyk3710RbKiRG3KrUJr8U4urmxESFY0xDLDQM5qRNrBQ==}
     peerDependencies:
       '@element-plus/icons-vue': ^2.3.1
       element-plus: ^2.7
@@ -830,26 +810,14 @@ packages:
       vite: ^5.0.0 || ^6.0.0
       vue: ^3.2.25
 
-  '@vue/compiler-core@3.5.13':
-    resolution: {integrity: sha512-oOdAkwqUfW1WqpwSYJce06wvt6HljgY3fGeM9NcVA1HaYOij3mZG9Rkysn0OHuyUAGMbEbARIpsG+LPVlBJ5/Q==}
-
   '@vue/compiler-core@3.5.44':
     resolution: {integrity: sha512-k34nCytbK8PQ1gR2mGROYOw6Pnv/mumqIdrZ3x2tbyXZDWm7ViKGLTfdB+DRrWqEQsLgGJvn0WN9jBif5zCTLQ==}
-
-  '@vue/compiler-dom@3.5.13':
-    resolution: {integrity: sha512-ZOJ46sMOKUjO3e94wPdCzQ6P1Lx/vhp2RSvfaab88Ajexs0AHeV0uasYhi99WPaogmBlRHNRuly8xV75cNTMDA==}
 
   '@vue/compiler-dom@3.5.44':
     resolution: {integrity: sha512-W5AoBFWdw1lQAKiHowkfgFKFab82oSRT6sGsPfw/q1GRjsy/ZJFLHGhJyBRIFN9APLTUduDH9U2JAiPOIyKuYg==}
 
-  '@vue/compiler-sfc@3.5.13':
-    resolution: {integrity: sha512-6VdaljMpD82w6c2749Zhf5T9u5uLBWKnVue6XWxprDobftnletJ8+oel7sexFfM3qIxNmVE7LSFGTpv6obNyaQ==}
-
   '@vue/compiler-sfc@3.5.44':
     resolution: {integrity: sha512-dzHmQ4jXTpdr5FjIQUeykVakN/uzqFbUo9/C5ikBFg3a3PeM6uRxeczx1ZbXBML0/zJstEh3ygYipzR5Z7b2Pw==}
-
-  '@vue/compiler-ssr@3.5.13':
-    resolution: {integrity: sha512-wMH6vrYHxQl/IybKJagqbquvxpWCuVYpoUJfCqFZwa/JY1GdATAQ+TgVtgrwwMZ0D07QhA99rs/EAAWfvG6KpA==}
 
   '@vue/compiler-ssr@3.5.44':
     resolution: {integrity: sha512-xr5gb1JVHlfXJwSlRz1FeP6uxoazdzHuMTVLE7up+4Vrqxk219CvxLPxD9NXBt47yvZW7+p4DXfyp4O1fkByIA==}
@@ -874,9 +842,6 @@ packages:
 
   '@vue/server-renderer@3.5.44':
     resolution: {integrity: sha512-R4S1UoH4h5Frrauv8Z5XE5TxV9oBiUSgWIC4TyVK1FK+RocRnOLwFA5Xcmo2011RlgJp+AbZCnw6afrhlgRuUQ==}
-
-  '@vue/shared@3.5.13':
-    resolution: {integrity: sha512-/hnE/qP5ZoGpol0a5mDi45bOd7t3tjYJBjsgCsivow7D48cJeV5l05RD82lPqi7gRiphZM37rnhW1l6ZoCNNnQ==}
 
   '@vue/shared@3.5.27':
     resolution: {integrity: sha512-dXr/3CgqXsJkZ0n9F3I4elY8wM9jMJpP3pvRG52r6m0tu/MsAFIe6JpXVGeNMd/D9F4hQynWT8Rfuj0bdm9kFQ==}
@@ -1218,10 +1183,6 @@ packages:
   emoji-regex-xs@1.0.0:
     resolution: {integrity: sha512-LRlerrMYoIDrT6jgpeZ2YYl/L8EulRTt5hQcYjy5AInh7HWXKimpqx68aknBFpGL2+/IcogTcaydJEgaTmOpDg==}
 
-  entities@4.5.0:
-    resolution: {integrity: sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw==}
-    engines: {node: '>=0.12'}
-
   entities@7.0.1:
     resolution: {integrity: sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA==}
     engines: {node: '>=0.12'}
@@ -1359,9 +1320,6 @@ packages:
 
   lodash@4.18.1:
     resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
-
-  magic-string@0.30.11:
-    resolution: {integrity: sha512-+Wri9p0QHMy+545hKww7YAu5NyzF8iomPL/RQazugQ9+Ez4Ic3mERMd8ZTX5rfK944j+560ZJi8iAwgak1Ac7A==}
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -1509,8 +1467,8 @@ packages:
   package-manager-detector@1.6.0:
     resolution: {integrity: sha512-61A5ThoTiDG/C8s8UMZwSorAGwMJ0ERVGj2OjoW5pAalsNOg15+iQiPzrLJ4jhZ1HJzmC2PIHT2oEiH3R5fzNA==}
 
-  pagefind@1.6.0:
-    resolution: {integrity: sha512-yeOd9EA0TUE1PUfbQIluBxzPadBG5/0BV48FAxwMVLkhZcOvwCz6TX4/a/Ofz97pF9/FwwT7CVbTC97BfmI+LQ==}
+  pagefind@1.5.2:
+    resolution: {integrity: sha512-XTUaK0hXMCu2jszWE584JGQT7y284TmMV9l/HX3rnG5uo3rHI/uHU56XTyyyPFjeWEBxECbAi0CaFDJOONtG0Q==}
     hasBin: true
 
   path-key@3.1.1:
@@ -1651,10 +1609,6 @@ packages:
     resolution: {integrity: sha512-W/KYk+NFhkmsYpuHq5JykngiOCnxeVL8v8dFnqxSD8qEEdRfXk1SDM6JzNqcERbcGYj9tMrDQBYV9cjgnunFIg==}
     engines: {node: '>=18'}
 
-  to-fast-properties@2.0.0:
-    resolution: {integrity: sha512-/OaKK0xYrs3DmxRYqL/yDc+FxFUVYhDlXMhRmv3z915w2HF1tnN1omB354j8VUGO/hbRzyD6Y3sA7v7GS/ceog==}
-    engines: {node: '>=4'}
-
   trim-lines@3.0.1:
     resolution: {integrity: sha512-kRj8B+YHZCc9kQYdWfJB2/oUl9rA99qbowYYBtr4ui4mZyAQ2JpvVBd/6U2YloATfqBhBTSMhTpgBHtU0Mf3Rg==}
 
@@ -1785,8 +1739,8 @@ packages:
       mermaid: '10'
       vitepress: ^0.21.6 || ^1.0.0 || ^1.0.0-alpha
 
-  vitepress-plugin-pagefind@0.4.27:
-    resolution: {integrity: sha512-s46uaZ7gsyXRZLeameVMfe37qScc+XmyzAKr6IHqzUVB7LtEXkH69u2E/aM8BCEjiQCdIZ2ORKqm4NVL4eUiQA==}
+  vitepress-plugin-pagefind@0.4.26:
+    resolution: {integrity: sha512-nq54lTL51lqdPiLpSBFkAK44K44pWaKA0uORUmNdaFGZqw5GoTUxaN3b6sPn1AHUFE+Le64/cb7hTzLSJj+CGQ==}
     peerDependencies:
       pagefind: ^1.1.0
       vitepress: ^1.0.0-0 || ^2.0.0-0
@@ -1959,27 +1913,13 @@ snapshots:
       package-manager-detector: 1.6.0
       tinyexec: 1.0.2
 
-  '@babel/helper-string-parser@7.24.8': {}
-
   '@babel/helper-string-parser@7.29.11': {}
 
-  '@babel/helper-validator-identifier@7.24.7': {}
-
   '@babel/helper-validator-identifier@7.29.7': {}
-
-  '@babel/parser@7.25.3':
-    dependencies:
-      '@babel/types': 7.25.2
 
   '@babel/parser@7.29.12':
     dependencies:
       '@babel/types': 7.29.11
-
-  '@babel/types@7.25.2':
-    dependencies:
-      '@babel/helper-string-parser': 7.24.8
-      '@babel/helper-validator-identifier': 7.24.7
-      to-fast-properties: 2.0.0
 
   '@babel/types@7.29.11':
     dependencies:
@@ -2224,8 +2164,6 @@ snapshots:
   '@img/sharp-win32-x64@0.34.5':
     optional: true
 
-  '@jridgewell/sourcemap-codec@1.5.0': {}
-
   '@jridgewell/sourcemap-codec@1.6.0': {}
 
   '@lit-labs/ssr-dom-shim@1.5.1': {}
@@ -2244,25 +2182,25 @@ snapshots:
       khroma: 2.1.0
       non-layered-tidy-tree-layout: 2.0.2
 
-  '@pagefind/darwin-arm64@1.6.0':
+  '@pagefind/darwin-arm64@1.5.2':
     optional: true
 
-  '@pagefind/darwin-x64@1.6.0':
+  '@pagefind/darwin-x64@1.5.2':
     optional: true
 
-  '@pagefind/freebsd-x64@1.6.0':
+  '@pagefind/freebsd-x64@1.5.2':
     optional: true
 
-  '@pagefind/linux-arm64@1.6.0':
+  '@pagefind/linux-arm64@1.5.2':
     optional: true
 
-  '@pagefind/linux-x64@1.6.0':
+  '@pagefind/linux-x64@1.5.2':
     optional: true
 
-  '@pagefind/windows-arm64@1.6.0':
+  '@pagefind/windows-arm64@1.5.2':
     optional: true
 
-  '@pagefind/windows-x64@1.6.0':
+  '@pagefind/windows-x64@1.5.2':
     optional: true
 
   '@parcel/watcher-android-arm64@2.6.0':
@@ -2412,11 +2350,11 @@ snapshots:
 
   '@sugarat/theme-shared@0.1.0':
     dependencies:
-      '@vue/compiler-sfc': 3.5.13
+      '@vue/compiler-sfc': 3.5.44
       cross-spawn: 7.0.3
       gray-matter: 4.0.3
 
-  '@sugarat/theme@0.5.33(@element-plus/icons-vue@2.3.2(vue@3.5.44(typescript@5.5.4)))(element-plus@2.14.7(vue@3.5.44(typescript@5.5.4)))(pagefind@1.6.0)(vite@5.4.18(sass@1.107.0))(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))(vue@3.5.44(typescript@5.5.4))':
+  '@sugarat/theme@0.5.32(@element-plus/icons-vue@2.3.2(vue@3.5.44(typescript@5.5.4)))(element-plus@2.14.7(vue@3.5.44(typescript@5.5.4)))(pagefind@1.5.2)(vite@5.4.18(sass@1.107.0))(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))(vue@3.5.44(typescript@5.5.4))':
     dependencies:
       '@element-plus/icons-vue': 2.3.2(vue@3.5.44(typescript@5.5.4))
       '@giscus/vue': 3.1.1(vue@3.5.44(typescript@5.5.4))
@@ -2436,7 +2374,7 @@ snapshots:
       vitepress-plugin-group-icons: 1.6.5(vite@5.4.18(sass@1.107.0))
       vitepress-plugin-image-preview: 0.1.8(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))(vue@3.5.44(typescript@5.5.4))
       vitepress-plugin-mermaid: 2.0.13(mermaid@10.9.1)(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))
-      vitepress-plugin-pagefind: 0.4.27(pagefind@1.6.0)(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))(vue@3.5.44(typescript@5.5.4))
+      vitepress-plugin-pagefind: 0.4.26(pagefind@1.5.2)(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))(vue@3.5.44(typescript@5.5.4))
       vitepress-plugin-product-card: 0.1.2(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))(vue@3.5.44(typescript@5.5.4))
       vitepress-plugin-rss: 0.4.6(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))
       vitepress-plugin-tabs: 0.9.0(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))(vue@3.5.44(typescript@5.5.4))
@@ -2507,14 +2445,6 @@ snapshots:
       vite: 5.4.18(sass@1.107.0)
       vue: 3.5.44(typescript@5.5.4)
 
-  '@vue/compiler-core@3.5.13':
-    dependencies:
-      '@babel/parser': 7.25.3
-      '@vue/shared': 3.5.13
-      entities: 4.5.0
-      estree-walker: 2.0.2
-      source-map-js: 1.2.2
-
   '@vue/compiler-core@3.5.44':
     dependencies:
       '@babel/parser': 7.29.12
@@ -2523,27 +2453,10 @@ snapshots:
       estree-walker: 2.0.2
       source-map-js: 1.2.2
 
-  '@vue/compiler-dom@3.5.13':
-    dependencies:
-      '@vue/compiler-core': 3.5.13
-      '@vue/shared': 3.5.13
-
   '@vue/compiler-dom@3.5.44':
     dependencies:
       '@vue/compiler-core': 3.5.44
       '@vue/shared': 3.5.44
-
-  '@vue/compiler-sfc@3.5.13':
-    dependencies:
-      '@babel/parser': 7.25.3
-      '@vue/compiler-core': 3.5.13
-      '@vue/compiler-dom': 3.5.13
-      '@vue/compiler-ssr': 3.5.13
-      '@vue/shared': 3.5.13
-      estree-walker: 2.0.2
-      magic-string: 0.30.11
-      postcss: 8.5.3
-      source-map-js: 1.2.2
 
   '@vue/compiler-sfc@3.5.44':
     dependencies:
@@ -2556,11 +2469,6 @@ snapshots:
       magic-string: 0.30.21
       postcss: 8.5.32
       source-map-js: 1.2.2
-
-  '@vue/compiler-ssr@3.5.13':
-    dependencies:
-      '@vue/compiler-dom': 3.5.13
-      '@vue/shared': 3.5.13
 
   '@vue/compiler-ssr@3.5.44':
     dependencies:
@@ -2606,8 +2514,6 @@ snapshots:
       '@vue/compiler-ssr': 3.5.44
       '@vue/runtime-dom': 3.5.44
       '@vue/shared': 3.5.44
-
-  '@vue/shared@3.5.13': {}
 
   '@vue/shared@3.5.27': {}
 
@@ -2953,8 +2859,6 @@ snapshots:
 
   emoji-regex-xs@1.0.0: {}
 
-  entities@4.5.0: {}
-
   entities@7.0.1: {}
 
   esbuild@0.21.5:
@@ -3107,10 +3011,6 @@ snapshots:
       lodash-es: 4.18.1
 
   lodash@4.18.1: {}
-
-  magic-string@0.30.11:
-    dependencies:
-      '@jridgewell/sourcemap-codec': 1.5.0
 
   magic-string@0.30.21:
     dependencies:
@@ -3366,15 +3266,15 @@ snapshots:
 
   package-manager-detector@1.6.0: {}
 
-  pagefind@1.6.0:
+  pagefind@1.5.2:
     optionalDependencies:
-      '@pagefind/darwin-arm64': 1.6.0
-      '@pagefind/darwin-x64': 1.6.0
-      '@pagefind/freebsd-x64': 1.6.0
-      '@pagefind/linux-arm64': 1.6.0
-      '@pagefind/linux-x64': 1.6.0
-      '@pagefind/windows-arm64': 1.6.0
-      '@pagefind/windows-x64': 1.6.0
+      '@pagefind/darwin-arm64': 1.5.2
+      '@pagefind/darwin-x64': 1.5.2
+      '@pagefind/freebsd-x64': 1.5.2
+      '@pagefind/linux-arm64': 1.5.2
+      '@pagefind/linux-x64': 1.5.2
+      '@pagefind/windows-arm64': 1.5.2
+      '@pagefind/windows-x64': 1.5.2
 
   path-key@3.1.1: {}
 
@@ -3547,8 +3447,6 @@ snapshots:
 
   tinyexec@1.0.2: {}
 
-  to-fast-properties@2.0.0: {}
-
   trim-lines@3.0.1: {}
 
   ts-dedent@2.2.0: {}
@@ -3674,12 +3572,12 @@ snapshots:
     optionalDependencies:
       '@mermaid-js/mermaid-mindmap': 9.3.0
 
-  vitepress-plugin-pagefind@0.4.27(pagefind@1.6.0)(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))(vue@3.5.44(typescript@5.5.4)):
+  vitepress-plugin-pagefind@0.4.26(pagefind@1.5.2)(vitepress@1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4))(vue@3.5.44(typescript@5.5.4)):
     dependencies:
       '@sugarat/theme-shared': 0.1.0
       '@vueuse/core': 15.0.0(vue@3.5.44(typescript@5.5.4))
       javascript-stringify: 2.1.0
-      pagefind: 1.6.0
+      pagefind: 1.5.2
       vitepress: 1.6.4(@algolia/client-search@5.23.4)(async-validator@4.2.5)(postcss@8.5.32)(sass@1.107.0)(search-insights@2.15.0)(typescript@5.5.4)
       vue: 3.5.44(typescript@5.5.4)
 
